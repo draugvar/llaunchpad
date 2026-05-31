@@ -121,6 +121,13 @@ fn main() -> anyhow::Result<()> {
             tokio::spawn(async move {
                 match test_connection(&url).await {
                     Ok(info) => {
+                        // persist the tested host so it is restored on the next run,
+                        // preserving the saved agent/model selections
+                        {
+                            let mut saved = config::load();
+                            saved.ollama_host = url.clone();
+                            config::save(&saved);
+                        }
                         // fetch local models from the confirmed-live server
                         let fetched = list_local_models(&url)
                             .await
@@ -171,8 +178,6 @@ fn main() -> anyhow::Result<()> {
                                 ui.set_status(msg.into());
                                 ui.set_status_kind(2);
                             }
-                        });
-                    }
                         });
                     }
                 }
