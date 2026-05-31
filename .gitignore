@@ -1,0 +1,11 @@
+/target
+
+# build artifacts
+/Llaunchpad.app
+/assets/AppIcon.iconset
+
+# macOS
+.DS_Store
+
+# IDE
+/.idea

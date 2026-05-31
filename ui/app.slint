@@ -1,0 +1,421 @@
+import { VerticalBox, HorizontalBox, ScrollView } from "std-widgets.slint";
+
+export struct AgentItem {
+    name: string,          // ollama launch token (e.g. "codex-app")
+    display: string,       // label (e.g. "Codex App")
+    is-gui: bool,
+    running: bool,
+    initials: string,      // badge text (e.g. "CA")
+    color-index: int,      // slot into Theme.palette
+}
+
+// ---- theme ----
+global Theme {
+    out property <color> bg: #1e1e2e;
+    out property <color> panel: #181825;
+    out property <color> card: #313244;
+    out property <color> accent: #89b4fa;
+    out property <color> text: #cdd6f4;
+    out property <color> subtext: #a6adc8;
+    out property <color> green: #a6e3a1;
+    out property <color> red: #f38ba8;
+    out property <[color]> palette: [
+        #89b4fa, #a6e3a1, #fab387, #cba6f7, #f38ba8, #94e2d5, #f9e2af,
+        #f5c2e7, #74c7ec, #f2cdcd, #b4befe, #eba0ac, #89dceb,
+    ];
+    public pure function tint(i: int) -> color {
+        return palette[mod(i, palette.length)];
+    }
+}
+
+// ---- colored initials badge ----
+component AgentBadge inherits Rectangle {
+    in property <string> label;
+    in property <int> color-index;
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    background: Theme.tint(color-index);
+    Text {
+        text: label;
+        color: #11111b;
+        font-size: 11px;
+        font-weight: 800;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+// ---- custom agent dropdown (badge + name per row) ----
+component AgentSelect {
+    in property <[AgentItem]> items;
+    in-out property <int> current-index;
+    min-width: 200px;
+    height: 34px;
+
+    property <AgentItem> cur: (current-index >= 0 && current-index < items.length)
+        ? items[current-index]
+        : { display: "Select agent", initials: "?", color-index: 0 };
+
+    field := Rectangle {
+        background: Theme.card;
+        border-radius: 8px;
+        border-width: ta.has-hover ? 1px : 0px;
+        border-color: Theme.accent.with-alpha(0.5);
+        HorizontalLayout {
+            padding-left: 8px;
+            padding-right: 12px;
+            spacing: 8px;
+            AgentBadge {
+                y: (parent.height - self.height) / 2;
+                label: cur.initials;
+                color-index: cur.color-index;
+            }
+            Text {
+                text: cur.display;
+                color: Theme.text;
+                font-size: 14px;
+                vertical-alignment: center;
+            }
+            Rectangle { horizontal-stretch: 1; }
+            Text {
+                text: "▾";
+                color: Theme.subtext;
+                font-size: 18px;
+                font-weight: 700;
+                vertical-alignment: center;
+            }
+        }
+        ta := TouchArea {
+            clicked => { popup.show(); }
+        }
+    }
+
+    popup := PopupWindow {
+        x: 0;
+        y: root.height + 4px;
+        width: root.width;
+        height: min(items.length * 36px, 300px) + 12px;
+        close-policy: close-on-click-outside;
+        Rectangle {
+            background: Theme.panel;
+            border-radius: 10px;
+            border-width: 1px;
+            border-color: #45475a;
+            ScrollView {
+                VerticalLayout {
+                    padding: 6px;
+                    for it[idx] in items: Rectangle {
+                        height: 36px;
+                        border-radius: 7px;
+                        background: row-ta.has-hover ? Theme.card : transparent;
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            spacing: 8px;
+                            alignment: start;
+                            AgentBadge {
+                                y: (parent.height - self.height) / 2;
+                                label: it.initials;
+                                color-index: it.color-index;
+                            }
+                            Text {
+                                text: it.display;
+                                color: Theme.text;
+                                font-size: 14px;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                            }
+                            Rectangle {
+                                width: 8px; height: 8px; border-radius: 4px;
+                                y: (parent.height - self.height) / 2;
+                                background: it.running ? Theme.green : transparent;
+                            }
+                        }
+                        row-ta := TouchArea {
+                            clicked => {
+                                root.current-index = idx;
+                                popup.close();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ---- plain string dropdown, same look as AgentSelect (no badge) ----
+component StringSelect {
+    in property <[string]> items;
+    in-out property <int> current-index;
+    in property <bool> enabled: true;
+    min-width: 200px;
+    height: 34px;
+
+    property <string> cur: (current-index >= 0 && current-index < items.length)
+        ? items[current-index]
+        : "Select model";
+
+    field := Rectangle {
+        background: Theme.card;
+        border-radius: 8px;
+        border-width: ta.has-hover ? 1px : 0px;
+        border-color: Theme.accent.with-alpha(0.5);
+        opacity: enabled ? 1.0 : 0.5;
+        HorizontalLayout {
+            padding-left: 12px;
+            padding-right: 12px;
+            spacing: 8px;
+            Text {
+                text: cur;
+                color: Theme.text;
+                font-size: 14px;
+                vertical-alignment: center;
+            }
+            Rectangle { horizontal-stretch: 1; }
+            Text {
+                text: "▾";
+                color: Theme.subtext;
+                font-size: 18px;
+                font-weight: 700;
+                vertical-alignment: center;
+            }
+        }
+        ta := TouchArea {
+            enabled: root.enabled;
+            clicked => { popup.show(); }
+        }
+    }
+
+    popup := PopupWindow {
+        x: 0;
+        y: root.height + 4px;
+        width: root.width;
+        height: min(items.length * 36px, 300px) + 12px;
+        close-policy: close-on-click-outside;
+        Rectangle {
+            background: Theme.panel;
+            border-radius: 10px;
+            border-width: 1px;
+            border-color: #45475a;
+            ScrollView {
+                VerticalLayout {
+                    padding: 6px;
+                    for it[idx] in items: Rectangle {
+                        height: 36px;
+                        border-radius: 7px;
+                        background: row-ta.has-hover ? Theme.card : transparent;
+                        HorizontalLayout {
+                            padding-left: 12px;
+                            padding-right: 8px;
+                            alignment: start;
+                            Text {
+                                text: it;
+                                color: Theme.text;
+                                font-size: 14px;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                            }
+                        }
+                        row-ta := TouchArea {
+                            clicked => {
+                                root.current-index = idx;
+                                popup.close();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ---- themed button (matches the rest of the app) ----
+component Btn {
+    in property <string> text;
+    in property <bool> primary: false;
+    in property <bool> enabled: true;
+    callback clicked();
+    height: 34px;
+    min-width: 100px;
+
+    Rectangle {
+        border-radius: 8px;
+        opacity: root.enabled ? 1.0 : 0.45;
+        background: root.primary
+            ? (ta.has-hover ? Theme.accent.brighter(0.15) : Theme.accent)
+            : (ta.has-hover ? Theme.card.brighter(0.25) : Theme.card);
+        HorizontalLayout {
+            padding-left: 16px;
+            padding-right: 16px;
+            Text {
+                text: root.text;
+                color: root.primary ? #11111b : Theme.text;
+                font-size: 14px;
+                font-weight: 700;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+        ta := TouchArea {
+            enabled: root.enabled;
+            clicked => { root.clicked(); }
+        }
+    }
+}
+
+export component AppWindow inherits Window {
+    title: "Llaunchpad";
+    // fixed size — non resizable (min == max)
+    min-width: 760px;
+    max-width: 760px;
+    min-height: 354px;
+    max-height: 354px;
+    background: Theme.bg;
+
+    in property <[AgentItem]> agents;
+    in property <[string]> agent-names;
+    in property <[string]> models;
+    in property <string> status;
+    in property <int> status-kind;   // 0 none, 1 ok, 2 error
+    in property <bool> refreshing;
+
+    // selection indices (settable from Rust to restore last use)
+    in-out property <int> sel-agent-index: -1;
+    in-out property <int> sel-model-index: -1;
+
+    // resolved selections
+    property <int> agent-idx: sel-agent-index;
+    property <string> agent-token: (sel-agent-index >= 0 && sel-agent-index < agents.length) ? agents[sel-agent-index].name : "";
+    property <bool> agent-running: (sel-agent-index >= 0 && sel-agent-index < agents.length) ? agents[sel-agent-index].running : false;
+    property <string> model-val: (sel-model-index >= 0 && sel-model-index < models.length) ? models[sel-model-index] : "";
+
+    callback launch(int /*agent index*/, string /*model*/);
+    callback refresh();
+
+    VerticalBox {
+        padding: 22px;
+        spacing: 20px;
+        alignment: start;
+
+        // ---- header ----
+        HorizontalBox {
+            alignment: space-between;
+            HorizontalLayout {
+                spacing: 10px;
+                Image {
+                    source: @image-url("../assets/icon-header.png");
+                    width: 44px;
+                    height: 44px;
+                    y: (parent.height - self.height) / 2;
+                }
+                Text {
+                    text: "Llaunchpad";
+                    color: Theme.text;
+                    font-size: 22px;
+                    font-weight: 800;
+                    vertical-alignment: center;
+                }
+            }
+            HorizontalBox {
+                spacing: 10px;
+                alignment: end;
+                Text {
+                    text: refreshing ? "refreshing…" : "";
+                    color: Theme.subtext;
+                    font-size: 12px;
+                    vertical-alignment: center;
+                }
+                Btn {
+                    text: "↻ Refresh";
+                    clicked => { root.refresh(); }
+                }
+            }
+        }
+
+        // ---- command line with inline dropdowns ----
+        Text {
+            text: "Command";
+            color: Theme.subtext;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        Rectangle {
+            background: Theme.panel;
+            border-radius: 14px;
+            border-width: 1px;
+            border-color: Theme.accent.with-alpha(0.35);
+            VerticalLayout {
+                padding: 18px;
+                HorizontalLayout {
+                    spacing: 10px;
+                    alignment: start;
+                    Text {
+                        text: "ollama launch";
+                        color: Theme.text;
+                        font-size: 16px;
+                        font-family: "Menlo";
+                        vertical-alignment: center;
+                    }
+                    agent-select := AgentSelect {
+                        items: root.agents;
+                        current-index <=> root.sel-agent-index;
+                        min-width: 190px;
+                    }
+                    Text {
+                        text: "--model";
+                        color: Theme.text;
+                        font-size: 16px;
+                        font-family: "Menlo";
+                        vertical-alignment: center;
+                    }
+                    model-select := StringSelect {
+                        items: root.models;
+                        current-index <=> root.sel-model-index;
+                        enabled: root.models.length > 0;
+                        min-width: 240px;
+                    }
+                }
+            }
+        }
+
+        // ---- launch ----
+        HorizontalBox {
+            spacing: 12px;
+            alignment: start;
+            Btn {
+                text: root.agent-running ? "Relaunch" : "Launch";
+                primary: true;
+                enabled: root.agent-token != "" && root.model-val != "";
+                clicked => { root.launch(root.agent-idx, root.model-val); }
+            }
+            Text {
+                text: root.agent-running ? "● running" : "";
+                color: Theme.green;
+                font-size: 12px;
+                vertical-alignment: center;
+            }
+        }
+
+        // ---- status bar ----
+        if root.status != "": Rectangle {
+            height: 34px;
+            border-radius: 8px;
+            background: root.status-kind == 2 ? Theme.red.with-alpha(0.14) : Theme.green.with-alpha(0.14);
+            HorizontalLayout {
+                padding-left: 12px;
+                padding-right: 12px;
+                Text {
+                    text: root.status;
+                    color: root.status-kind == 2 ? Theme.red : Theme.green;
+                    font-size: 13px;
+                    font-weight: 600;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                }
+            }
+        }
+    }
+}
