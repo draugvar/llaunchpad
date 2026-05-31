@@ -311,6 +311,32 @@ fn launch_codex(agent: &str, is_gui: bool, model: &str, ollama_host: Option<&str
     Ok(())
 }
 
+// ───────────────────────── restore ─────────────────────────
+
+/// An agent can be restored if `ollama` saved a backup for it
+/// (`~/.ollama/launch/<agent>-restore.json`).
+pub fn restore_available(agent: &str) -> bool {
+    home_dir()
+        .map(|h| {
+            h.join(".ollama/launch")
+                .join(format!("{agent}-restore.json"))
+                .exists()
+        })
+        .unwrap_or(false)
+}
+
+/// Restore an agent to its original (pre-Ollama) profile.
+pub fn restore_agent(agent: &str) -> Result<()> {
+    let status = Command::new(crate::ollama::ollama_bin())
+        .args(["launch", agent, "--restore", "-y"])
+        .status()
+        .with_context(|| format!("failed to restore `{agent}`"))?;
+    if !status.success() {
+        anyhow::bail!("restore of `{agent}` failed");
+    }
+    Ok(())
+}
+
 // ───────────────────────── public entry point ─────────────────────────
 
 /// Launch (or relaunch) an agent with the given model via `ollama launch`.
