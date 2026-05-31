@@ -231,6 +231,34 @@ component StringSelect {
     }
 }
 
+// ---- themed text input ----
+component ThemedInput {
+    in-out property <string> text;
+    in property <string> placeholder-text: "";
+    callback accepted(string);
+    height: 34px;
+    min-width: 200px;
+
+    Rectangle {
+        background: Theme.card;
+        border-radius: 8px;
+        border-width: ti.has-focus ? 1px : 0px;
+        border-color: Theme.accent.with-alpha(0.5);
+        HorizontalLayout {
+            padding-left: 10px;
+            padding-right: 10px;
+            ti := TextInput {
+                text <=> root.text;
+                color: Theme.text;
+                font-size: 13px;
+                vertical-alignment: center;
+                single-line: true;
+                accepted => { root.accepted(self.text); }
+            }
+        }
+    }
+}
+
 // ---- themed button (matches the rest of the app) ----
 component Btn {
     in property <string> text;
@@ -270,8 +298,8 @@ export component AppWindow inherits Window {
     // fixed size — non resizable (min == max)
     min-width: 760px;
     max-width: 760px;
-    min-height: 384px;
-    max-height: 384px;
+    min-height: 440px;
+    max-height: 440px;
     background: Theme.bg;
 
     in property <[AgentItem]> agents;
@@ -285,6 +313,8 @@ export component AppWindow inherits Window {
     // selection indices (settable from Rust to restore last use)
     in-out property <int> sel-agent-index: -1;
     in-out property <int> sel-model-index: -1;
+    // Ollama server URL (editable, persisted)
+    in-out property <string> ollama-host: "http://localhost:11434";
 
     // resolved selections
     property <int> agent-idx: sel-agent-index;
@@ -294,6 +324,7 @@ export component AppWindow inherits Window {
 
     callback launch(int /*agent index*/, string /*model*/);
     callback refresh();
+    callback test-connection(string /*ollama host url*/);
 
     VerticalBox {
         padding: 22px;
@@ -332,6 +363,31 @@ export component AppWindow inherits Window {
                     text: "↻ Refresh";
                     clicked => { root.refresh(); }
                 }
+            }
+        }
+
+        // ---- ollama host row ----
+        HorizontalLayout {
+            spacing: 8px;
+            alignment: start;
+            Text {
+                text: "Ollama host";
+                color: Theme.subtext;
+                font-size: 12px;
+                font-weight: 700;
+                vertical-alignment: center;
+                width: 82px;
+            }
+            host-input := ThemedInput {
+                text <=> root.ollama-host;
+                placeholder-text: "http://localhost:11434";
+                horizontal-stretch: 1;
+                accepted(url) => { root.test-connection(url); }
+            }
+            Btn {
+                text: "Test";
+                min-width: 70px;
+                clicked => { root.test-connection(root.ollama-host); }
             }
         }
 

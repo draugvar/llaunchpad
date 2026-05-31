@@ -5,7 +5,7 @@ mod ollama;
 
 slint::include_modules!();
 
-use ollama::{list_agents, list_cloud_models, launch_agent, running_states, Agent};
+use ollama::{list_agents, list_cloud_models, test_connection, launch_agent, running_states, Agent};
 use slint::{ModelRc, SharedString, VecModel};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -74,6 +74,30 @@ fn main() -> anyhow::Result<()> {
     let prefs = Arc::new(config::load());
     let prefs_applied = Arc::new(AtomicBool::new(false));
 
+    // restore ollama_host from prefs
+    ui.set_ollama_host(prefs.ollama_host.clone().into());
+
+    // ---- test connection ----
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_test_connection(move |url| {
+            let url = url.to_string();
+            let ui_weak = ui_weak.clone();
+            tokio::spawn(async move {
+                let (msg, kind) = match test_connection(&url).await {
+                    Ok(info) => (format!("✓ {info}"), 1),
+                    Err(e) => (format!("✗ {e}"), 2),
+                };
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_weak.upgrade() {
+                        ui.set_status(msg.into());
+                        ui.set_status_kind(kind);
+                    }
+                });
+            });
+        });
+    }
+
     // ---- launch / relaunch ----
     {
         let store = agents_store.clone();
@@ -81,18 +105,25 @@ fn main() -> anyhow::Result<()> {
         ui.on_launch(move |idx, model| {
             let agent = store.lock().unwrap().get(idx as usize).cloned();
             let model = model.to_string();
-            // persist last-used selection
+            // read the current host value from the UI
+            let host = ui_weak
+                .upgrade()
+                .map(|ui| ui.get_ollama_host().to_string())
+                .unwrap_or_default();
+            // persist last-used selection including host
             if let Some(a) = &agent {
                 config::save(&config::Prefs {
                     agent: a.name.clone(),
                     model: model.clone(),
+                    ollama_host: host.clone(),
                 });
             }
             let ui_weak = ui_weak.clone();
             // launch is blocking (process spawn + quit delay); use a thread
             std::thread::spawn(move || {
+                let host_opt = if host.is_empty() { None } else { Some(host.as_str()) };
                 let (msg, kind) = match agent {
-                    Some(a) => match launch_agent(&a, &model) {
+                    Some(a) => match launch_agent(&a, &model, host_opt) {
                         Ok(()) => (format!("✓ {} launched · {}", a.display, model), 1),
                         Err(e) => (format!("✗ {e}"), 2),
                     },
