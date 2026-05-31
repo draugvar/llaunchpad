@@ -393,6 +393,9 @@ export component AppWindow inherits Window {
     min-height: 440px;
     max-height: 440px;
     background: Theme.bg;
+    // Ensure Unicode glyphs (▾ ↻ ✕ ● ✓ ✗) render on every platform.
+    // Segoe UI covers them on Windows; macOS/Linux fall back to their system font.
+    default-font-family: "Segoe UI";
 
     in property <[AgentItem]> agents;
     in property <[string]> agent-names;
@@ -505,7 +508,7 @@ export component AppWindow inherits Window {
                         text: "ollama launch";
                         color: Theme.text;
                         font-size: 16px;
-                        font-family: "Menlo";
+                        font-family: "Menlo, Consolas, DejaVu Sans Mono, monospace";
                         vertical-alignment: center;
                     }
                     agent-select := AgentSelect {
@@ -517,7 +520,7 @@ export component AppWindow inherits Window {
                         text: "--model";
                         color: Theme.text;
                         font-size: 16px;
-                        font-family: "Menlo";
+                        font-family: "Menlo, Consolas, DejaVu Sans Mono, monospace";
                         vertical-alignment: center;
                     }
                     model-select := ModelSelect {
