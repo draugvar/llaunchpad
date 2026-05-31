@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-05-31
+
+### Fixed
+- Bundled app now resolves the absolute `ollama` path (Homebrew/usr/local), so it works
+  when launched from Finder/Dock where GUI apps get a minimal `PATH`. Previously failed with
+  "failed to run `ollama launch --help`".
+
+### Changed
+- Homebrew cask strips the quarantine attribute via `postflight`, so the app opens without
+  the Gatekeeper prompt — no right-click needed.
+
 ## [0.1.1] - 2026-05-31
 
 ### Added
@@ -31,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Persisted last-used agent + model across runs.
 - App icon, banner, and `bundle.sh` to assemble `Llaunchpad.app`.
 
-[Unreleased]: https://github.com/draugvar/llaunchpad/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/draugvar/llaunchpad/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/draugvar/llaunchpad/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/draugvar/llaunchpad/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/draugvar/llaunchpad/releases/tag/v0.1.0

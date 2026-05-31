@@ -91,7 +91,7 @@ fn launch_codex_app(model: &str) -> Result<()> {
         }
     }
     // configure only (writes config, does not launch)
-    Command::new("ollama")
+    Command::new(crate::ollama::ollama_bin())
         .args(["launch", "codex-app", "--model", model, "--config", "-y"])
         .status()
         .context("failed to configure codex-app")?;
@@ -117,13 +117,18 @@ pub fn launch_agent(agent: &Agent, model: &str) -> Result<()> {
             }
         }
         // ollama launch configures the integration and opens the app
-        Command::new("ollama")
+        Command::new(crate::ollama::ollama_bin())
             .args(["launch", &agent.name, "--model", model, "-y"])
             .spawn()
             .with_context(|| format!("failed to launch `{}`", agent.name))?;
     } else {
-        // CLI agent: run inside Terminal.app
-        let cmd = format!("ollama launch {} --model {} -y", agent.name, model);
+        // CLI agent: run inside Terminal.app (absolute path: GUI PATH is minimal)
+        let cmd = format!(
+            "{} launch {} --model {} -y",
+            crate::ollama::ollama_bin(),
+            agent.name,
+            model
+        );
         let script = format!(
             "tell application \"Terminal\"\n\
              activate\n\
