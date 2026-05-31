@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use serde::Deserialize;
+use std::time::Duration;
 
 #[derive(Clone, Debug)]
 pub struct Model {
@@ -50,6 +51,56 @@ pub async fn list_cloud_models() -> Result<Vec<Model>> {
         .collect();
     models.sort_by(|a, b| a.name.cmp(&b.name));
     Ok(models)
+}
+
+// ---- Ollama local server catalog (/api/tags) ----
+#[derive(Deserialize)]
+struct TagsResponse {
+    models: Vec<LocalModel>,
+}
+
+#[derive(Deserialize)]
+struct LocalModel {
+    name: String,
+}
+
+/// Fetch the list of models available on a local/remote Ollama server.
+pub async fn list_local_models(base_url: &str) -> Result<Vec<Model>> {
+    let url = format!("{}/api/tags", base_url.trim_end_matches('/'));
+    let resp = reqwest::Client::new()
+        .get(&url)
+        .timeout(Duration::from_secs(5))
+        .send()
+        .await
+        .with_context(|| format!("could not reach {url}"))?;
+    if !resp.status().is_success() {
+        anyhow::bail!("server returned {}", resp.status());
+    }
+    let parsed: TagsResponse = resp.json().await.context("invalid /api/tags response")?;
+    let mut models: Vec<Model> = parsed.models.into_iter().map(|m| Model { name: m.name }).collect();
+    models.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(models)
+}
+
+/// Test connectivity to a local/remote Ollama server by hitting its `/api/version` endpoint.
+/// Returns a short description string on success (e.g. "Ollama 0.6.5").
+pub async fn test_connection(base_url: &str) -> Result<String> {
+    let url = format!("{}/api/version", base_url.trim_end_matches('/'));
+    let resp = reqwest::Client::new()
+        .get(&url)
+        .timeout(Duration::from_secs(5))
+        .send()
+        .await
+        .with_context(|| format!("could not reach {url}"))?;
+    if !resp.status().is_success() {
+        anyhow::bail!("server returned {}", resp.status());
+    }
+    let body: serde_json::Value = resp.json().await.context("unexpected response body")?;
+    let version = body
+        .get("version")
+        .and_then(|v| v.as_str())
+        .unwrap_or("?");
+    Ok(format!("Connected — Ollama {version}"))
 }
 
 #[cfg(test)]
