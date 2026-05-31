@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <b>A native macOS launcher that wires any Ollama coding agent to any cloud model — in one click.</b>
+  <b>A native, cross-platform launcher that wires any Ollama coding agent to any cloud model — in one click.</b>
 </p>
 
 ---
@@ -46,6 +46,7 @@ the exact cloud model names, and re-typing the command every time.
 | **Smart "running" badge** | Detects the real GUI process by bundle path — no false positives from background helpers. |
 | **Persisted state** | Your last agent + model are restored on the next launch. |
 | **Native & light** | Pure Rust + [Slint](https://slint.dev), single ~14 MB binary, no Electron. |
+| **Cross-platform** | Runs on macOS, Linux, and Windows. |
 
 ## Install
 
