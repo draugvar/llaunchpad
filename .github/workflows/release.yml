@@ -4,21 +4,62 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
 
 permissions:
   contents: write
   actions: write
 
+# Cancel superseded runs on the same ref (e.g. new push to a PR branch).
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # Workaround for transient "Error in the HTTP2 framing layer" failures
+  # when cargo fetches crates from the sparse registry on Windows runners.
+  CARGO_HTTP_MULTIPLEXING: "false"
+
 jobs:
-  # ── Check if the version in Cargo.toml is new ──────────────────────────────
+  # ── CI: build + test on every push to main (gates the release) ─────────────
+  test:
+    name: Test — ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux deps
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
+            libxkbcommon-dev libwayland-dev libegl1-mesa-dev \
+            libfontconfig1-dev pkg-config
+      - name: Build
+        run: cargo build --all-targets
+      - name: Test
+        run: cargo test --all-targets
+
+  # ── Check the version in Cargo.toml is new (fails if not bumped) ───────────
   check-version:
     name: Check version
+    needs: test
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
-      should_release: ${{ steps.check.outputs.should_release }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Extract version from Cargo.toml
@@ -27,20 +68,18 @@ jobs:
           VERSION=$(grep '^version' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Detected version: $VERSION"
-      - name: Check if tag already exists
-        id: check
+      - name: Require a bumped version
         run: |
           if git tag | grep -qx "v${{ steps.version.outputs.version }}"; then
-            echo "should_release=false" >> $GITHUB_OUTPUT
-          else
-            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "::error::Version v${{ steps.version.outputs.version }} already released — bump 'version' in Cargo.toml."
+            exit 1
           fi
+          echo "Version v${{ steps.version.outputs.version }} is new — proceeding."
 
   # ── Build on all three platforms ───────────────────────────────────────────
   build:
     name: Build — ${{ matrix.os }}
-    needs: check-version
-    if: needs.check-version.outputs.should_release == 'true'
+    needs: [test, check-version]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -52,7 +91,7 @@ jobs:
           - os: windows-latest
             asset: llaunchpad-windows-x86_64.zip
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
 
       # ── macOS: universal .app ────────────────────────────────────────────
@@ -111,7 +150,7 @@ jobs:
     needs: [check-version, build]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
