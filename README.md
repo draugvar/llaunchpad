@@ -42,6 +42,7 @@ the exact cloud model names, and re-typing the command every time.
 | **Full cloud catalog** | Every model from `ollama.com/v1/models`, refreshed in the background every 5s. |
 | **Custom Ollama host** | Point at any local or remote Ollama server; **Test** button probes the URL and pulls its local models. |
 | **Local model badge** | Local models from your server show up first in the dropdown, tagged with a teal **local** badge. |
+| **Choose your terminal** | Settings → Terminal: pick the terminal app that hosts CLI agents (Terminal, iTerm2, Alacritty, WezTerm, kitty, GNOME Terminal, Konsole, Windows Terminal, PowerShell, …). |
 | **Correct model names** | Cloud ids are auto-normalized to launchable refs (`glm-4.6` → `glm-4.6:cloud`, `gpt-oss:120b` → `gpt-oss:120b-cloud`). |
 | **GUI & CLI agents** | GUI apps (Codex, VS Code) are opened/relaunched; CLI agents spawn in Terminal. |
 | **Codex App fix** | Strips the legacy `profile =` line modern Codex rejects, so launches just work. |
@@ -87,8 +88,10 @@ open Llaunchpad.app
 1. Open Llaunchpad.
 2. (Optional) Paste your **Ollama host** URL (default `http://localhost:11434`) and hit
    **Test** to pull that server's local models into the dropdown.
-3. Choose an **agent** and a **model** from the inline dropdowns.
-4. Hit **Launch**. The status bar confirms what was started. Click the ✕ to dismiss it.
+3. (Optional) Click the **⚙ Settings** tab on the left to pick which terminal app
+   hosts CLI agents — the dropdown only shows terminals available on your platform.
+4. Choose an **agent** and a **model** from the inline dropdowns.
+5. Hit **Launch**. The status bar confirms what was started. Click the ✕ to dismiss it.
 
 That's it — Llaunchpad runs `ollama launch <agent> --model <model> -y` under the hood and
 brings the agent up configured against your chosen model.
@@ -132,7 +135,8 @@ Project layout:
 ```
 src/
   main.rs            UI wiring, background refresh, state persistence
-  config.rs          last-used selection + ollama_host (prefs.json)
+  config.rs          last-used selection + ollama_host + terminal (prefs.json)
+  terminal.rs        terminal enum + per-platform launchers
   ollama/
     agents.rs        parse `ollama launch --help`
     models.rs        cloud catalog + local /api/tags + server probe

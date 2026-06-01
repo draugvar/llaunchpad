@@ -2,6 +2,7 @@
 
 mod config;
 mod ollama;
+mod terminal;
 
 slint::include_modules!();
 
@@ -9,6 +10,7 @@ use ollama::{
     launch_agent, list_agents, list_cloud_models, list_local_models, restore_agent,
     restore_available, running_states, test_connection, Agent,
 };
+use terminal::Terminal;
 use slint::{Model, ModelRc, SharedString, VecModel};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -135,6 +137,24 @@ fn main() -> anyhow::Result<()> {
     // restore ollama_host from prefs
     ui.set_ollama_host(prefs.ollama_host.clone().into());
 
+    // populate terminal dropdown with the current platform's options
+    {
+        let items: Vec<TerminalItem> = terminal::available()
+            .iter()
+            .map(|t| TerminalItem {
+                key: t.key().into(),
+                label: t.label().into(),
+            })
+            .collect();
+        let idx = terminal::available()
+            .iter()
+            .position(|t| t.key() == prefs.terminal.as_str())
+            .map(|i| i as i32)
+            .unwrap_or(0);
+        ui.set_terminals(ModelRc::new(VecModel::from(items)));
+        ui.set_sel_terminal_index(idx);
+    }
+
     // ---- dismiss banner ----
     {
         let ui_weak = ui.as_weak();
@@ -245,13 +265,23 @@ fn main() -> anyhow::Result<()> {
                     agent: a.name.clone(),
                     model: model.clone(),
                     ollama_host: host.clone(),
+                    terminal: ui_weak
+                        .upgrade()
+                        .map(|ui| ui.get_sel_terminal_key().to_string())
+                        .unwrap_or_default(),
                 });
             }
             let ui_weak = ui_weak.clone();
             std::thread::spawn(move || {
                 let host_opt = if host.is_empty() { None } else { Some(host.as_str()) };
+                let terminal = Terminal::from_key(
+                    &ui_weak
+                        .upgrade()
+                        .map(|ui| ui.get_sel_terminal_key().to_string())
+                        .unwrap_or_default(),
+                );
                 let (msg, kind) = match agent {
-                    Some(a) => match launch_agent(&a, &model, host_opt) {
+                    Some(a) => match launch_agent(&a, &model, host_opt, &terminal) {
                         Ok(()) => (format!("✓ {} launched · {}", a.display, model), 1),
                         Err(e) => (format!("✗ {e}"), 2),
                     },
@@ -403,6 +433,37 @@ fn main() -> anyhow::Result<()> {
     {
         let do_refresh = do_refresh.clone();
         ui.on_refresh(move || do_refresh());
+    }
+
+    // ---- sidebar tab switch ----
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_switch_tab(move |tab| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_current_tab(tab);
+            }
+        });
+    }
+
+    // ---- terminal selection changed: persist immediately ----
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_select_terminal(move |idx| {
+            if let Some(ui) = ui_weak.upgrade() {
+                if idx < 0 {
+                    return;
+                }
+                ui.set_sel_terminal_index(idx);
+                let key = ui
+                    .get_terminals()
+                    .row_data(idx as usize)
+                    .map(|t| t.key.to_string())
+                    .unwrap_or_default();
+                let mut saved = config::load();
+                saved.terminal = key;
+                config::save(&saved);
+            }
+        });
     }
 
     // background poller every 5s (keeps agents + models fresh)

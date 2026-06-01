@@ -6,6 +6,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Sidebar tab navigation** — vertical tab bar on the left with **Home** and
+  **Settings** tabs (icon + label, accent bar on the active tab). The header
+  no longer has a Settings toggle button.
+- **Settings tab** — currently hosts the **Terminal** selector; more options
+  will land here over time.
+- **Choose the terminal that hosts CLI agents.** The dropdown only lists
+  terminals available on the current platform, so:
+  - **macOS** — System default, Terminal, iTerm2, Alacritty, WezTerm, kitty
+  - **Linux** — System default, GNOME Terminal, Konsole, XFCE Terminal, xterm, Alacritty, WezTerm, kitty
+  - **Windows** — System default, Windows Terminal, Command Prompt, PowerShell
+
+  The selection is persisted in `prefs.json` and applied to the next launch.
+
+### Changed
+- Window widened from 760px to 820px to accommodate the 64px sidebar.
+
 ## [0.4.0] - 2026-06-01
 
 ### Added

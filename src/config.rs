@@ -11,6 +11,10 @@ pub struct Prefs {
     /// Ollama server base URL (e.g. "http://localhost:11434")
     #[serde(default = "default_ollama_host")]
     pub ollama_host: String,
+    /// Persisted terminal key (see `crate::terminal::Terminal::key`).
+    /// Empty / missing falls back to the platform default.
+    #[serde(default)]
+    pub terminal: String,
 }
 
 fn default_ollama_host() -> String {
@@ -23,6 +27,7 @@ impl Default for Prefs {
             agent: String::new(),
             model: String::new(),
             ollama_host: default_ollama_host(),
+            terminal: String::new(),
         }
     }
 }

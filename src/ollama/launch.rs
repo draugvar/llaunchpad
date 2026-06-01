@@ -1,4 +1,5 @@
 use crate::ollama::Agent;
+use crate::terminal::Terminal;
 use anyhow::{Context, Result};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -76,10 +77,11 @@ fn shell_safe_url(url: &str) -> String {
         .collect()
 }
 
-/// Run a shell command line in a new terminal window.
+/// Run a shell command line in a new terminal window, using the
+/// user-configured terminal application.
 /// If `ollama_host` is provided it is forwarded as `OLLAMA_HOST` so the agent
 /// connects to the right server.
-fn spawn_in_terminal(cmd: &str, ollama_host: Option<&str>) -> Result<()> {
+fn spawn_in_terminal(cmd: &str, ollama_host: Option<&str>, terminal: &Terminal) -> Result<()> {
     // Prepend OLLAMA_HOST=<url> to the command string for each platform.
     // The host is sanitized before interpolation to guard against shell injection.
     let full_cmd: String;
@@ -96,46 +98,7 @@ fn spawn_in_terminal(cmd: &str, ollama_host: Option<&str>) -> Result<()> {
         cmd
     };
 
-    #[cfg(target_os = "macos")]
-    {
-        let script = format!(
-            "tell application \"Terminal\"\nactivate\ndo script \"{}\"\nend tell",
-            cmd.replace('\\', "\\\\").replace('"', "\\\"")
-        );
-        Command::new("osascript")
-            .arg("-e")
-            .arg(script)
-            .spawn()
-            .context("failed to open Terminal")?;
-        return Ok(());
-    }
-    #[cfg(target_os = "linux")]
-    {
-        let hold = format!("{cmd}; exec ${{SHELL:-/bin/bash}}");
-        let candidates: &[(&str, &[&str])] = &[
-            ("x-terminal-emulator", &["-e", "bash", "-lc"]),
-            ("gnome-terminal", &["--", "bash", "-lc"]),
-            ("konsole", &["-e", "bash", "-lc"]),
-            ("xfce4-terminal", &["-e", "bash", "-lc"]),
-            ("xterm", &["-e", "bash", "-lc"]),
-        ];
-        for (bin, args) in candidates {
-            let mut c = Command::new(bin);
-            c.args(*args).arg(&hold);
-            if c.spawn().is_ok() {
-                return Ok(());
-            }
-        }
-        anyhow::bail!("no terminal emulator found (tried gnome-terminal, konsole, xterm…)");
-    }
-    #[cfg(target_os = "windows")]
-    {
-        Command::new("cmd")
-            .args(["/C", "start", "cmd", "/K", cmd])
-            .spawn()
-            .context("failed to open cmd")?;
-        return Ok(());
-    }
+    terminal.spawn(cmd)
 }
 
 /// Quit a running GUI app (best effort, per platform).
@@ -286,7 +249,7 @@ fn migrate_codex_profiles(model: &str) -> Result<()> {
 /// Codex (GUI app or CLI): `ollama launch` writes a legacy profile config that
 /// current Codex rejects. Configure first (`--config`), migrate the profile into
 /// its own file, then launch Codex ourselves.
-fn launch_codex(agent: &str, is_gui: bool, model: &str, ollama_host: Option<&str>) -> Result<()> {
+fn launch_codex(agent: &str, is_gui: bool, model: &str, ollama_host: Option<&str>, terminal: &Terminal) -> Result<()> {
     // close the GUI app if it is already open (relaunch)
     #[cfg(target_os = "macos")]
     if is_gui {
@@ -322,7 +285,7 @@ fn launch_codex(agent: &str, is_gui: bool, model: &str, ollama_host: Option<&str
         }
     } else {
         // CLI: run codex against the migrated profile in a terminal
-        spawn_in_terminal("codex --profile ollama-launch", ollama_host)?;
+        spawn_in_terminal("codex --profile ollama-launch", ollama_host, terminal)?;
     }
     Ok(())
 }
@@ -358,10 +321,16 @@ pub fn restore_agent(agent: &str) -> Result<()> {
 /// Launch (or relaunch) an agent with the given model via `ollama launch`.
 /// `ollama_host` is forwarded as `OLLAMA_HOST` when set, routing the agent
 /// to a custom Ollama server instead of the default localhost.
-pub fn launch_agent(agent: &Agent, model: &str, ollama_host: Option<&str>) -> Result<()> {
+/// `terminal` selects the terminal application that hosts CLI agents.
+pub fn launch_agent(
+    agent: &Agent,
+    model: &str,
+    ollama_host: Option<&str>,
+    terminal: &Terminal,
+) -> Result<()> {
     match agent.name.as_str() {
-        "codex-app" => return launch_codex("codex-app", true, model, ollama_host),
-        "codex" => return launch_codex("codex", false, model, ollama_host),
+        "codex-app" => return launch_codex("codex-app", true, model, ollama_host, terminal),
+        "codex" => return launch_codex("codex", false, model, ollama_host, terminal),
         _ => {}
     }
 
@@ -385,7 +354,7 @@ pub fn launch_agent(agent: &Agent, model: &str, ollama_host: Option<&str>) -> Re
             agent.name,
             model
         );
-        spawn_in_terminal(&cmd, ollama_host)?;
+        spawn_in_terminal(&cmd, ollama_host, terminal)?;
     }
     Ok(())
 }

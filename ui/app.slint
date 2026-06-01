@@ -15,6 +15,11 @@ export struct ModelItem {
     is-local: bool,        // true = pulled from local/remote Ollama server
 }
 
+export struct TerminalItem {
+    key: string,           // persisted key (e.g. "iterm2", "gnome-terminal")
+    label: string,         // human-readable label for the dropdown
+}
+
 // ---- theme ----
 global Theme {
     out property <color> bg: #1e1e2e;
@@ -66,6 +71,96 @@ component LocalBadge inherits Rectangle {
         font-weight: 800;
         horizontal-alignment: center;
         vertical-alignment: center;
+    }
+}
+
+// ---- plain string dropdown (used for the terminal list) ----
+component TerminalSelect {
+    in property <[TerminalItem]> items;
+    in-out property <int> current-index;
+    callback selected(int /*index*/);
+    min-width: 200px;
+    height: 34px;
+    property <length> vis: min(items.length * 36px, 200px);
+    property <int> open-tick: 0;
+
+    property <TerminalItem> cur: (current-index >= 0 && current-index < items.length)
+        ? items[current-index]
+        : { key: "", label: "Select terminal" };
+
+    field := Rectangle {
+        background: Theme.card;
+        border-radius: 8px;
+        border-width: ta.has-hover ? 1px : 0px;
+        border-color: Theme.accent.with-alpha(0.5);
+        HorizontalLayout {
+            padding-left: 12px;
+            padding-right: 12px;
+            spacing: 8px;
+            Text {
+                text: cur.label;
+                color: Theme.text;
+                font-size: 14px;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+            Text {
+                text: "▾";
+                color: Theme.subtext;
+                font-size: 18px;
+                font-family: "Arial, Helvetica, Liberation Sans, DejaVu Sans, sans-serif";
+                vertical-alignment: center;
+            }
+        }
+        ta := TouchArea {
+            clicked => { popup.show(); root.open-tick += 1; }
+        }
+    }
+
+    popup := PopupWindow {
+        x: 0;
+        y: 0px;
+        width: field.width;
+        height: vis + 12px;
+        close-policy: close-on-click-outside;
+
+        Rectangle {
+            background: Theme.card;
+            border-radius: 10px;
+            border-width: 1px;
+            border-color: Theme.accent.with-alpha(0.35);
+            ScrollView {
+                viewport-y: (root.open-tick * 0px) - max(0px, min(root.current-index * 36px, items.length * 36px + 12px - vis));
+                VerticalLayout {
+                    padding: 6px;
+                    for it[idx] in items: Rectangle {
+                        height: 36px;
+                        border-radius: 7px;
+                        background: idx == root.current-index
+                            ? Theme.accent.with-alpha(0.18)
+                            : (row-ta.has-hover ? Theme.accent.with-alpha(0.08) : transparent);
+                        HorizontalLayout {
+                            padding-left: 12px;
+                            padding-right: 8px;
+                            alignment: start;
+                            Text {
+                                text: it.label;
+                                color: Theme.text;
+                                font-size: 14px;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                            }
+                        }
+                        row-ta := TouchArea {
+                            clicked => {
+                                root.current-index = idx;
+                                popup.close();
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -381,6 +476,53 @@ component Banner {
     }
 }
 
+// ---- sidebar tab button (icon + label, active highlight) ----
+component TabButton {
+    in property <string> icon;
+    in property <string> label;
+    in property <string> tab;
+    in property <string> current-tab;
+    callback clicked();
+    height: 60px;
+
+    Rectangle {
+        background: root.tab == root.current-tab
+            ? Theme.accent.with-alpha(0.15)
+            : (ta.has-hover ? Theme.card.with-alpha(0.45) : transparent);
+        // left accent bar for the active tab
+        Rectangle {
+            x: 0;
+            y: 0;
+            width: 3px;
+            height: parent.height;
+            background: root.tab == root.current-tab ? Theme.accent : transparent;
+        }
+        VerticalLayout {
+            padding-top: 8px;
+            padding-bottom: 8px;
+            spacing: 2px;
+            alignment: center;
+            Text {
+                text: root.icon;
+                font-size: 20px;
+                font-family: "Arial, Helvetica, Liberation Sans, DejaVu Sans, sans-serif";
+                color: root.tab == root.current-tab ? Theme.accent : Theme.subtext;
+                horizontal-alignment: center;
+            }
+            Text {
+                text: root.label;
+                font-size: 10px;
+                font-weight: 700;
+                color: root.tab == root.current-tab ? Theme.text : Theme.subtext;
+                horizontal-alignment: center;
+            }
+        }
+        ta := TouchArea {
+            clicked => { root.clicked(); }
+        }
+    }
+}
+
 // ---- themed button (matches the rest of the app) ----
 component Btn {
     in property <string> text;
@@ -418,8 +560,8 @@ component Btn {
 export component AppWindow inherits Window {
     title: "Llaunchpad";
     // fixed size — non resizable (min == max)
-    min-width: 760px;
-    max-width: 760px;
+    min-width: 820px;
+    max-width: 820px;
     min-height: 440px;
     max-height: 440px;
     background: Theme.bg;
@@ -444,6 +586,16 @@ export component AppWindow inherits Window {
     // Ollama server URL (editable, persisted)
     in-out property <string> ollama-host: "http://localhost:11434";
 
+    // ---- settings ----
+    in property <[TerminalItem]> terminals;
+    in-out property <int> sel-terminal-index: -1;
+    // Active sidebar tab. "home" or "settings".
+    in-out property <string> current-tab: "home";
+    // Persisted key of the selected terminal (mirrors sel-terminal-index).
+    out property <string> sel-terminal-key: (sel-terminal-index >= 0 && sel-terminal-index < terminals.length)
+        ? terminals[sel-terminal-index].key
+        : "";
+
     // resolved selections
     property <int> agent-idx: sel-agent-index;
     property <string> agent-token: (sel-agent-index >= 0 && sel-agent-index < agents.length) ? agents[sel-agent-index].name : "";
@@ -456,162 +608,241 @@ export component AppWindow inherits Window {
     callback refresh();
     callback test-connection(string /*ollama host url*/);
     callback dismiss();
+    callback switch-tab(string /*tab key*/);
+    callback select-terminal(int /*terminal index*/);
 
-    VerticalBox {
-        padding: 22px;
-        spacing: 20px;
-        alignment: start;
+    HorizontalLayout {
+        spacing: 0;
 
-        // ---- header ----
-        HorizontalBox {
-            alignment: space-between;
-            HorizontalLayout {
-                spacing: 10px;
-                Image {
-                    source: @image-url("../assets/icon-header.png");
-                    width: 44px;
-                    height: 44px;
-                    y: (parent.height - self.height) / 2;
-                }
-                Text {
-                    text: "Llaunchpad";
-                    color: Theme.text;
-                    font-size: 22px;
-                    font-weight: 800;
-                    vertical-alignment: center;
-                }
-            }
-            HorizontalBox {
-                spacing: 10px;
-                alignment: end;
-                Text {
-                    text: refreshing ? "refreshing…" : "";
-                    color: Theme.subtext;
-                    font-size: 12px;
-                    vertical-alignment: center;
-                }
-                Btn {
-                    text: "↻ Refresh";
-                    clicked => { root.refresh(); }
-                }
-            }
-        }
-
-        // ---- ollama host row ----
-        HorizontalLayout {
-            spacing: 8px;
-            alignment: start;
-            Text {
-                text: "Ollama host";
-                color: Theme.subtext;
-                font-size: 12px;
-                font-weight: 700;
-                vertical-alignment: center;
-                width: 82px;
-            }
-            host-input := ThemedInput {
-                text <=> root.ollama-host;
-                placeholder-text: "http://localhost:11434";
-                horizontal-stretch: 1;
-                accepted(url) => { root.test-connection(url); }
-            }
-            Btn {
-                text: "Test";
-                min-width: 70px;
-                clicked => { root.test-connection(root.ollama-host); }
-            }
-        }
-
-        // ---- command line with inline dropdowns ----
-        Text {
-            text: "Command";
-            color: Theme.subtext;
-            font-size: 12px;
-            font-weight: 700;
-        }
+        // ---- sidebar ----
         Rectangle {
+            width: 64px;
             background: Theme.panel;
-            border-radius: 14px;
-            border-width: 1px;
-            border-color: Theme.accent.with-alpha(0.35);
             VerticalLayout {
-                padding: 18px;
+                padding-top: 16px;
+                spacing: 4px;
+                alignment: start;
+                TabButton {
+                    icon: "▶";
+                    label: "Home";
+                    tab: "home";
+                    current-tab: root.current-tab;
+                    clicked => { root.switch-tab("home"); }
+                }
+                TabButton {
+                    icon: "⚙";
+                    label: "Settings";
+                    tab: "settings";
+                    current-tab: root.current-tab;
+                    clicked => { root.switch-tab("settings"); }
+                }
+                // push any future tabs to the bottom
+                Rectangle { vertical-stretch: 1; }
+            }
+        }
+
+        // ---- main area ----
+        VerticalBox {
+            padding: 22px;
+            spacing: 20px;
+            alignment: start;
+            horizontal-stretch: 1;
+
+            // ---- header ----
+            HorizontalBox {
+                alignment: space-between;
                 HorizontalLayout {
                     spacing: 10px;
-                    alignment: start;
-                    Text {
-                        text: "ollama launch";
-                        color: Theme.text;
-                        font-size: 16px;
-                        font-family: "Consolas";
-                        vertical-alignment: center;
-                    }
-                    agent-select := AgentSelect {
-                        items: root.agents;
-                        current-index <=> root.sel-agent-index;
-                        min-width: 190px;
+                    Image {
+                        source: @image-url("../assets/icon-header.png");
+                        width: 40px;
+                        height: 40px;
+                        y: (parent.height - self.height) / 2;
                     }
                     Text {
-                        text: "--model";
+                        text: "Llaunchpad";
                         color: Theme.text;
-                        font-size: 16px;
-                        font-family: "Menlo, Consolas, DejaVu Sans Mono, monospace";
+                        font-size: 22px;
+                        font-weight: 800;
                         vertical-alignment: center;
                     }
-                    model-select := ModelSelect {
-                        items: root.models;
-                        current-index <=> root.sel-model-index;
-                        enabled: root.models.length > 0;
-                        min-width: 240px;
+                }
+                HorizontalBox {
+                    spacing: 10px;
+                    alignment: end;
+                    Text {
+                        text: refreshing ? "refreshing…" : "";
+                        color: Theme.subtext;
+                        font-size: 12px;
+                        vertical-alignment: center;
+                    }
+                    Btn {
+                        text: "↻ Refresh";
+                        clicked => { root.refresh(); }
                     }
                 }
             }
-        }
 
-        // ---- launch ----
-        HorizontalBox {
-            spacing: 12px;
-            alignment: start;
-            Btn {
-                text: root.agent-running ? "Relaunch" : "Launch";
-                primary: true;
-                enabled: root.agent-token != "" && root.model-val != "";
-                clicked => { root.launch(root.agent-idx, root.model-val); }
-            }
-            Btn {
-                text: "Restore";
-                primary: false;
-                enabled: root.agent-restorable;
-                clicked => { root.restore(root.agent-idx); }
-            }
-            Text {
-                text: root.agent-running ? "● running" : "";
-                color: Theme.green;
-                font-size: 12px;
-                vertical-alignment: center;
-            }
-        }
+            // ---- home tab ----
+            if root.current-tab == "home": VerticalLayout {
+                spacing: 20px;
 
-        // push the footer to the bottom
-        Rectangle { vertical-stretch: 1; }
+                // ollama host row
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: start;
+                    Text {
+                        text: "Ollama host";
+                        color: Theme.subtext;
+                        font-size: 12px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                        width: 82px;
+                    }
+                    host-input := ThemedInput {
+                        text <=> root.ollama-host;
+                        placeholder-text: "http://localhost:11434";
+                        horizontal-stretch: 1;
+                        accepted(url) => { root.test-connection(url); }
+                    }
+                    Btn {
+                        text: "Test";
+                        min-width: 70px;
+                        clicked => { root.test-connection(root.ollama-host); }
+                    }
+                }
 
-        // ---- footer: banner (left, stretches) + version (right) ----
-        HorizontalLayout {
-            spacing: 12px;
-            if root.status != "": Banner {
-                message: root.status;
-                kind: root.status-kind;
-                close => { root.dismiss(); }
+                // command line with inline dropdowns
+                Text {
+                    text: "Command";
+                    color: Theme.subtext;
+                    font-size: 12px;
+                    font-weight: 700;
+                }
+                Rectangle {
+                    background: Theme.panel;
+                    border-radius: 14px;
+                    border-width: 1px;
+                    border-color: Theme.accent.with-alpha(0.35);
+                    VerticalLayout {
+                        padding: 18px;
+                        HorizontalLayout {
+                            spacing: 10px;
+                            alignment: start;
+                            Text {
+                                text: "ollama launch";
+                                color: Theme.text;
+                                font-size: 16px;
+                                font-family: "Consolas";
+                                vertical-alignment: center;
+                            }
+                            agent-select := AgentSelect {
+                                items: root.agents;
+                                current-index <=> root.sel-agent-index;
+                                min-width: 190px;
+                            }
+                            Text {
+                                text: "--model";
+                                color: Theme.text;
+                                font-size: 16px;
+                                font-family: "Menlo, Consolas, DejaVu Sans Mono, monospace";
+                                vertical-alignment: center;
+                            }
+                            model-select := ModelSelect {
+                                items: root.models;
+                                current-index <=> root.sel-model-index;
+                                enabled: root.models.length > 0;
+                                min-width: 240px;
+                            }
+                        }
+                    }
+                }
+
+                // launch row
+                HorizontalBox {
+                    spacing: 12px;
+                    alignment: start;
+                    Btn {
+                        text: root.agent-running ? "Relaunch" : "Launch";
+                        primary: true;
+                        enabled: root.agent-token != "" && root.model-val != "";
+                        clicked => { root.launch(root.agent-idx, root.model-val); }
+                    }
+                    Btn {
+                        text: "Restore";
+                        primary: false;
+                        enabled: root.agent-restorable;
+                        clicked => { root.restore(root.agent-idx); }
+                    }
+                    Text {
+                        text: root.agent-running ? "● running" : "";
+                        color: Theme.green;
+                        font-size: 12px;
+                        vertical-alignment: center;
+                    }
+                }
             }
-            if root.status == "": Rectangle {
-                horizontal-stretch: 1;
-                height: 34px;
+
+            // ---- settings tab ----
+            if root.current-tab == "settings": VerticalLayout {
+                spacing: 16px;
+                Text {
+                    text: "Settings";
+                    color: Theme.text;
+                    font-size: 18px;
+                    font-weight: 800;
+                }
+                Rectangle {
+                    background: Theme.panel;
+                    border-radius: 12px;
+                    border-width: 1px;
+                    border-color: Theme.accent.with-alpha(0.25);
+                    VerticalLayout {
+                        padding: 14px;
+                        spacing: 10px;
+                        Text {
+                            text: "Terminal";
+                            color: Theme.subtext;
+                            font-size: 12px;
+                            font-weight: 700;
+                        }
+                        terminal-select := TerminalSelect {
+                            items: root.terminals;
+                            current-index <=> root.sel-terminal-index;
+                            min-width: 240px;
+                            selected(idx) => { root.select-terminal(idx); }
+                        }
+                        Text {
+                            text: "The terminal application that hosts CLI agents. Changes are saved automatically.";
+                            color: Theme.subtext;
+                            font-size: 11px;
+                            wrap: word-wrap;
+                        }
+                    }
+                }
             }
-            Text {
-                text: "v" + root.version;
-                color: Theme.subtext;
-                font-size: 11px;
-                vertical-alignment: center;
+
+            // push the footer to the bottom
+            Rectangle { vertical-stretch: 1; }
+
+            // ---- footer: banner (left, stretches) + version (right) ----
+            HorizontalLayout {
+                spacing: 12px;
+                if root.status != "": Banner {
+                    message: root.status;
+                    kind: root.status-kind;
+                    close => { root.dismiss(); }
+                }
+                if root.status == "": Rectangle {
+                    horizontal-stretch: 1;
+                    height: 34px;
+                }
+                Text {
+                    text: "v" + root.version;
+                    color: Theme.subtext;
+                    font-size: 11px;
+                    vertical-alignment: center;
+                }
             }
         }
     }
