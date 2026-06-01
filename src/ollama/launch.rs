@@ -3,6 +3,7 @@ use anyhow::{Context, Result};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::OnceLock;
 
 fn home_dir() -> Option<PathBuf> {
     std::env::var_os("HOME")
@@ -60,6 +61,120 @@ pub fn agent_running(agent: &Agent) -> bool {
         .first()
         .copied()
         .unwrap_or(false)
+}
+
+// ───────────────────────── install detection ─────────────────────────
+
+/// What it takes for an agent integration to be considered "installed".
+/// Either at least one binary is on PATH, or at least one macOS `.app`
+/// bundle is found. Empty arrays disable that side of the check.
+struct InstallSpec {
+    bins: &'static [&'static str],
+    bundles: &'static [&'static str],
+}
+
+/// Known per-agent install rules. Agents not in this table are reported as
+/// installed: we'd rather let an unknown integration through than block a
+/// legitimate launch with a false negative.
+fn install_spec(name: &str) -> Option<InstallSpec> {
+    match name {
+        "codex-app" => Some(InstallSpec { bins: &[], bundles: &["Codex.app"] }),
+        "vscode" => Some(InstallSpec {
+            bins: &["code"],
+            bundles: &["Visual Studio Code.app", "VSCodium.app"],
+        }),
+        "cursor" => Some(InstallSpec { bins: &["cursor"], bundles: &["Cursor.app"] }),
+        "codex" => Some(InstallSpec { bins: &["codex"], bundles: &[] }),
+        "claude" => Some(InstallSpec { bins: &["claude"], bundles: &[] }),
+        "opencode" => Some(InstallSpec { bins: &["opencode"], bundles: &[] }),
+        _ => None,
+    }
+}
+
+/// PATH directories from the *login* shell, resolved once.
+/// GUI apps on macOS get a minimal PATH from launchd (no Homebrew), so a bare
+/// `code`/`cursor`/… lookup misses real installs. Mirror the trick already
+/// used by `resolve_ollama` and pull PATH out of `zsh -lc`.
+fn login_path_dirs() -> &'static [PathBuf] {
+    static DIRS: OnceLock<Vec<PathBuf>> = OnceLock::new();
+    DIRS.get_or_init(|| {
+        #[cfg(unix)]
+        {
+            for sh in ["/bin/zsh", "/bin/bash", "/bin/sh"] {
+                if !std::path::Path::new(sh).exists() {
+                    continue;
+                }
+                if let Ok(out) = Command::new(sh)
+                    .args(["-lc", "printf %s \"$PATH\""])
+                    .output()
+                {
+                    let s = String::from_utf8_lossy(&out.stdout).into_owned();
+                    if !s.is_empty() {
+                        return s
+                            .split(':')
+                            .filter(|p| !p.is_empty())
+                            .map(PathBuf::from)
+                            .collect();
+                    }
+                }
+            }
+        }
+        std::env::var_os("PATH")
+            .map(|p| std::env::split_paths(&p).collect())
+            .unwrap_or_default()
+    })
+    .as_slice()
+}
+
+/// macOS bundle search roots: system + per-user Applications.
+#[cfg(target_os = "macos")]
+fn bundle_search_dirs() -> Vec<PathBuf> {
+    let mut dirs = vec![PathBuf::from("/Applications")];
+    if let Some(home) = home_dir() {
+        dirs.push(home.join("Applications"));
+    }
+    dirs
+}
+
+/// True if a binary `name` is found in any login-PATH directory.
+/// On Windows, common executable extensions are appended.
+fn binary_exists(name: &str) -> bool {
+    for d in login_path_dirs() {
+        if d.join(name).exists() {
+            return true;
+        }
+        #[cfg(windows)]
+        for ext in ["exe", "cmd", "bat"] {
+            if d.join(format!("{name}.{ext}")).exists() {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// True if a `.app` bundle with `name` exists in a standard macOS location.
+#[cfg(target_os = "macos")]
+fn bundle_exists(name: &str) -> bool {
+    bundle_search_dirs().iter().any(|d| d.join(name).exists())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn bundle_exists(_name: &str) -> bool {
+    false
+}
+
+/// Whether the agent's required app or CLI is installed on this machine.
+/// Agents without a rule are conservatively reported as installed.
+pub fn agent_installed(name: &str) -> bool {
+    let Some(spec) = install_spec(name) else { return true };
+    spec.bins.iter().any(|b| binary_exists(b))
+        || spec.bundles.iter().any(|b| bundle_exists(b))
+}
+
+/// Batched install states (mirrors `running_states`).
+pub fn installed_states(agents: &[Agent]) -> Vec<bool> {
+    agents.iter().map(|a| agent_installed(&a.name)).collect()
 }
 
 // ───────────────────────── platform helpers ─────────────────────────
@@ -359,6 +474,10 @@ pub fn restore_agent(agent: &str) -> Result<()> {
 /// `ollama_host` is forwarded as `OLLAMA_HOST` when set, routing the agent
 /// to a custom Ollama server instead of the default localhost.
 pub fn launch_agent(agent: &Agent, model: &str, ollama_host: Option<&str>) -> Result<()> {
+    if !agent_installed(&agent.name) {
+        anyhow::bail!("{} is not installed", agent.display);
+    }
+
     match agent.name.as_str() {
         "codex-app" => return launch_codex("codex-app", true, model, ollama_host),
         "codex" => return launch_codex("codex", false, model, ollama_host),
@@ -388,4 +507,23 @@ pub fn launch_agent(agent: &Agent, model: &str, ollama_host: Option<&str>) -> Re
         spawn_in_terminal(&cmd, ollama_host)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unknown_agent_is_assumed_installed() {
+        // Agents we don't have a rule for must not be flagged as missing —
+        // a false negative here would block a legitimate launch.
+        assert!(agent_installed("totally-not-a-real-agent"));
+    }
+
+    #[test]
+    fn known_agents_have_install_specs() {
+        for name in ["codex-app", "codex", "vscode", "cursor", "claude", "opencode"] {
+            assert!(install_spec(name).is_some(), "missing spec for `{name}`");
+        }
+    }
 }
