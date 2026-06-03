@@ -46,6 +46,8 @@ pub struct StateSnapshot {
     pub last_agent: Option<String>,
     /// Persisted model name (launchable, e.g. "glm-4.6:cloud").
     pub last_model: Option<String>,
+    /// Persisted terminal key (e.g. "iterm2"); None if no prior run.
+    pub last_terminal: Option<String>,
 }
 
 impl Default for StateSnapshot {
@@ -60,6 +62,7 @@ impl Default for StateSnapshot {
             first_load: false,
             last_agent: None,
             last_model: None,
+            last_terminal: None,
         }
     }
 }
@@ -77,6 +80,7 @@ impl AppState {
             ollama_host: prefs.ollama_host.clone(),
             last_agent: (!prefs.agent.is_empty()).then(|| prefs.agent.clone()),
             last_model: (!prefs.model.is_empty()).then(|| prefs.model.clone()),
+            last_terminal: (!prefs.terminal.is_empty()).then(|| prefs.terminal.clone()),
             ..StateSnapshot::default()
         };
         Self { snapshot: snap }
@@ -252,6 +256,14 @@ impl AppModel {
         config::save(&prefs);
     }
 
+    /// User picked a new terminal. Persists immediately so the next
+    /// launch uses the chosen emulator.
+    pub fn set_terminal(&self, key: String) {
+        let mut prefs = config::load();
+        prefs.terminal = key;
+        config::save(&prefs);
+    }
+
     pub fn set_status(&self, status: Status) {
         self.update(|s| s.status = status);
     }
@@ -290,9 +302,15 @@ impl AppModel {
     }
 
     /// Convenience for the Controller's "spawn" path.
-    pub async fn launch(&self, agent: Agent, model: String, ollama_host: Option<String>) -> Result<()> {
+    pub async fn launch(
+        &self,
+        agent: Agent,
+        model: String,
+        ollama_host: Option<String>,
+        terminal: crate::terminal::Terminal,
+    ) -> Result<()> {
         let host = ollama_host.as_deref();
-        self.repo.launch_agent(&agent, &model, host).await
+        self.repo.launch_agent(&agent, &model, host, &terminal).await
     }
 
     pub async fn restore(&self, agent_token: String) -> Result<()> {
@@ -334,7 +352,7 @@ mod tests {
     struct FakeInner {
         world: Option<Result<WorldSnapshot, String>>,
         test: Option<Result<TestResult, String>>,
-        launches: Vec<(String, String, Option<String>)>,
+        launches: Vec<(String, String, Option<String>, crate::terminal::Terminal)>,
         restores: Vec<String>,
         restore_available: std::collections::HashMap<String, bool>,
     }
@@ -451,11 +469,13 @@ mod tests {
             agent: &Agent,
             model: &str,
             ollama_host: Option<&str>,
+            terminal: &crate::terminal::Terminal,
         ) -> Result<()> {
             self.inner.lock().unwrap().launches.push((
                 agent.name.clone(),
                 model.to_string(),
                 ollama_host.map(String::from),
+                *terminal,
             ));
             Ok(())
         }
@@ -475,7 +495,7 @@ mod tests {
         let _home = HomeGuard::new("llaunchpad-model-test");
         let (inner, repo) = FakeRepository::new();
         inner.lock().unwrap().world = Some(Ok(sample_world()));
-        let prefs = Prefs { agent: "claude".into(), model: "glm-4.6:cloud".into(), ollama_host: "http://x".into() };
+        let prefs = Prefs { agent: "claude".into(), model: "glm-4.6:cloud".into(), ollama_host: "http://x".into(), terminal: String::new() };
         let model = AppModel::new(repo as Arc<dyn Repository>, prefs);
         assert!(!model.snapshot().first_load, "starts false");
         let r = rt();
@@ -518,6 +538,7 @@ mod tests {
             agent: "codex-app".into(),
             model: "gpt-oss:120b-cloud".into(),
             ollama_host: "http://localhost:11434".into(),
+            terminal: String::new(),
         };
         let model = AppModel::new(repo as Arc<dyn Repository>, prefs);
         let s = model.snapshot();
@@ -675,6 +696,7 @@ mod tests {
             agent: "old-agent".into(),
             model: "old-model".into(),
             ollama_host: "http://x".into(),
+            terminal: String::new(),
         });
         let model = AppModel::new(repo as Arc<dyn Repository>, crate::config::load());
         model.record_selection(Some("new-agent".into()), None);
@@ -692,8 +714,13 @@ mod tests {
         let model = AppModel::new(repo as Arc<dyn Repository>, Prefs::default());
         let a = agent("claude", "Claude", false);
         let r = rt();
-        r.block_on(model.launch(a, "gpt-oss:120b-cloud".into(), Some("http://h".into())))
-            .unwrap();
+        r.block_on(model.launch(
+            a,
+            "gpt-oss:120b-cloud".into(),
+            Some("http://h".into()),
+            crate::terminal::Terminal::Default,
+        ))
+        .unwrap();
         let calls = &inner.lock().unwrap().launches;
         assert_eq!(calls.len(), 1);
         assert_eq!(calls[0].0, "claude");

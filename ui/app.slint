@@ -16,6 +16,11 @@ export struct ModelItem {
     is-local: bool,        // true = pulled from local/remote Ollama server
 }
 
+export struct TerminalItem {
+    key: string,           // persisted key (e.g. "iterm2", "gnome-terminal")
+    label: string,         // human-readable label for the dropdown
+}
+
 // ---- theme ----
 global Theme {
     out property <color> bg: #1e1e2e;
@@ -118,6 +123,102 @@ component NotInstalledBadge inherits Rectangle {
         font-weight: 800;
         horizontal-alignment: center;
         vertical-alignment: center;
+    }
+}
+
+// ---- plain string dropdown used for the terminal list ----
+component TerminalSelect {
+    in property <[TerminalItem]> items;
+    in-out property <int> current-index;
+    min-width: 200px;
+    height: 34px;
+    property <length> vis: min(items.length * 36px, 200px);
+    property <int> open-tick: 0;
+
+    property <TerminalItem> cur: (current-index >= 0 && current-index < items.length)
+        ? items[current-index]
+        : { key: "", label: "Select terminal" };
+
+    field := Rectangle {
+        background: Theme.card;
+        border-radius: 8px;
+        border-width: ta.has-hover ? 1px : 0px;
+        border-color: Theme.accent.with-alpha(0.5);
+        HorizontalLayout {
+            padding-left: 12px;
+            padding-right: 12px;
+            spacing: 6px;
+            Text {
+                text: cur.label;
+                color: Theme.text;
+                font-size: 14px;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                overflow: elide;
+            }
+            Icon {
+                name: "chevron-down";
+                color: Theme.subtext;
+                size: 18px;
+                stroke: 1.75px;
+                y: (parent.height - self.height) / 2;
+            }
+        }
+        ta := TouchArea {
+            clicked => {
+                root.open-tick += 1;
+                popup.show();
+            }
+        }
+    }
+
+    popup := PopupWindow {
+        x: 0;
+        y: 0px;
+        width: max(root.width, 260px);
+        height: vis + 12px;
+        close-policy: close-on-click-outside;
+        Rectangle {
+            background: Theme.panel;
+            border-radius: 10px;
+            border-width: 1px;
+            border-color: #45475a;
+            clip: true;
+            ScrollView {
+                height: vis;
+                viewport-y: (root.open-tick * 0px) - max(0px, min(root.current-index * 36px, items.length * 36px + 12px - vis));
+                VerticalLayout {
+                    padding: 6px;
+                    for it[idx] in items: Rectangle {
+                        height: 36px;
+                        border-radius: 7px;
+                        clip: true;
+                        background: idx == root.current-index
+                            ? Theme.accent.with-alpha(0.22)
+                            : (row-ta.has-hover ? Theme.card : transparent);
+                        HorizontalLayout {
+                            padding-left: 12px;
+                            padding-right: 12px;
+                            alignment: start;
+                            Text {
+                                text: it.label;
+                                color: Theme.text;
+                                font-size: 14px;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                                overflow: elide;
+                            }
+                        }
+                        row-ta := TouchArea {
+                            clicked => {
+                                root.current-index = idx;
+                                popup.close();
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -514,7 +615,11 @@ component IconBtn {
 component SettingsPanel {
     in property <bool> open;
     in property <string> version-label: "";
+    in property <[TerminalItem]> terminals;
+    in-out property <int> sel-terminal-index: 0;
+    in-out property <string> sel-terminal-key: "";
     callback close();
+    callback select-terminal(string /*terminal key*/);
     width: 360px;
     height: 100%;
 
@@ -564,17 +669,36 @@ component SettingsPanel {
                 background: #45475a;
             }
 
-            // body — intentionally empty for now
+            // ---- terminal selector ----
             Rectangle {
-                vertical-stretch: 1;
-                Text {
-                    text: "Nothing here yet.";
-                    color: Theme.subtext;
-                    font-size: 13px;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
+                background: Theme.card.with-alpha(0.45);
+                border-radius: 10px;
+                border-width: 1px;
+                border-color: Theme.accent.with-alpha(0.25);
+                VerticalLayout {
+                    padding: 14px;
+                    spacing: 8px;
+                    Text {
+                        text: "Terminal";
+                        color: Theme.text;
+                        font-size: 14px;
+                        font-weight: 700;
+                    }
+                    Text {
+                        text: "Terminal emulator used to launch CLI agents. Only installed emulators are listed.";
+                        color: Theme.subtext;
+                        font-size: 12px;
+                        wrap: word-wrap;
+                    }
+                    terminal-select := TerminalSelect {
+                        items: root.terminals;
+                        current-index <=> root.sel-terminal-index;
+                        horizontal-stretch: 1;
+                    }
                 }
             }
+
+            Rectangle { vertical-stretch: 1; }
 
             // footer
             Text {
@@ -616,6 +740,13 @@ export component AppWindow inherits Window {
     // Ollama server URL (editable, persisted)
     in-out property <string> ollama-host: "http://localhost:11434";
 
+    // ---- terminal selection ----
+    in property <[TerminalItem]> terminals;
+    in-out property <int> sel-terminal-index: 0;
+    out property <string> sel-terminal-key: (sel-terminal-index >= 0 && sel-terminal-index < terminals.length)
+        ? terminals[sel-terminal-index].key
+        : "";
+
     // resolved selections
     property <int> agent-idx: sel-agent-index;
     property <string> agent-token: (sel-agent-index >= 0 && sel-agent-index < agents.length) ? agents[sel-agent-index].name : "";
@@ -629,6 +760,7 @@ export component AppWindow inherits Window {
     callback refresh();
     callback test-connection(string /*ollama host url*/);
     callback dismiss();
+    callback select-terminal(string /*terminal key*/);
 
     // ---- settings side panel state ----
     in-out property <bool> settings-open: false;
@@ -861,6 +993,10 @@ export component AppWindow inherits Window {
             height: 100%;
             open: root.settings-open;
             version-label: "v" + root.version;
+            terminals: root.terminals;
+            sel-terminal-index <=> root.sel-terminal-index;
+            sel-terminal-key <=> root.sel-terminal-key;
+            select-terminal(key) => { root.select-terminal(key); }
             close => { root.close-settings(); }
             animate x { duration: 220ms; easing: ease-out; }
         }

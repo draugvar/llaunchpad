@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Terminal selector in Settings** — choose which terminal emulator hosts CLI agents. The dropdown lists only the emulators installed on the current machine (Terminal.app, iTerm2, Alacritty, WezTerm, kitty on macOS; GNOME Terminal, Konsole, XFCE Terminal, xterm, Alacritty, WezTerm, kitty on Linux; Windows Terminal, Command Prompt, PowerShell on Windows). The "System default" entry is always available and falls back to the historical per-OS behavior. The choice is persisted in `prefs.json` and applied on every subsequent launch. A new `crate::terminal` module owns the enum, install detection (PATH lookup, `.app` bundles, login-shell PATH for GUI processes), and per-platform spawn implementation.
+
 ## [0.5.0] - 2026-06-01
 
 ### Added

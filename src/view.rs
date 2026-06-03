@@ -56,6 +56,8 @@ pub trait ViewState: Send + Sync {
     fn ollama_host(&self) -> String;
     fn selected_agent_token(&self) -> Option<String>;
     fn selected_model_name(&self) -> Option<String>;
+    /// Key of the user-selected terminal (empty = system default).
+    fn selected_terminal_key(&self) -> String;
 }
 
 /// Controller callbacks the View invokes when the user interacts with
@@ -71,6 +73,7 @@ pub trait Controller: Send + Sync {
     fn on_close_settings(&self);
     fn on_selection_changed(&self, agent: Option<String>, model: Option<String>);
     fn on_ollama_host_edited(&self, url: String);
+    fn on_terminal_changed(&self, key: String);
 }
 
 // ───────────────────── helpers ─────────────────────
@@ -126,9 +129,19 @@ struct UserSelection {
     sel_agent: i32,
     sel_model: i32,
     ollama_host: String,
+    sel_terminal: String,
 }
 
 impl SlintAppView {
+    /// Borrow a weak handle to the underlying Slint window. Used by
+    /// the composition root to push values that need to land before
+    /// the controller mirror loop starts, so they are never
+    /// overwritten by a snapshot apply. Weak by design; the caller
+    /// upgrades it on the UI thread.
+    pub fn ui_weak(&self) -> slint::Weak<AppWindow> {
+        self.ui.as_weak()
+    }
+
     pub fn new() -> Rc<Self> {
         let ui = AppWindow::new().expect("failed to create AppWindow");
         ui.set_version(env!("CARGO_PKG_VERSION").into());
@@ -176,6 +189,15 @@ impl SlintAppView {
                 }
                 if let Some(cc) = c.upgrade() {
                     cc.on_dismiss_status();
+                }
+            });
+        }
+        // terminal selection changed: persist immediately
+        {
+            let c = controller.clone();
+            self.ui.on_select_terminal(move |key| {
+                if let Some(cc) = c.upgrade() {
+                    cc.on_terminal_changed(key.to_string());
                 }
             });
         }
@@ -432,6 +454,12 @@ impl ViewState for SlintViewState {
             return None;
         }
         ui.get_models().row_data(i as usize).map(|m| m.name.to_string())
+    }
+    fn selected_terminal_key(&self) -> String {
+        self.ui_weak
+            .upgrade()
+            .map(|ui| ui.get_sel_terminal_key().to_string())
+            .unwrap_or_default()
     }
 }
 

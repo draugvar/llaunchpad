@@ -85,12 +85,19 @@ impl Controller for AppController {
             return;
         };
         let host = self.view_state.ollama_host();
+        let terminal = crate::terminal::Terminal::from_key(
+            &self.view_state.selected_terminal_key(),
+        );
         self.model.record_launch(agent.name.clone(), model.clone());
         let m = self.model.clone();
         let sink = self.sink.clone();
         tokio::spawn(async move {
-            let res = m.launch(agent.clone(), model.clone(), Some(host)).await;
+            let res = m.launch(agent.clone(), model.clone(), Some(host), terminal).await;
             let (msg, kind) = match res {
+                Ok(()) if terminal == crate::terminal::Terminal::Warp => (
+                    "✓ Warp opened · command on clipboard — press Cmd+V in Warp".to_string(),
+                    1,
+                ),
                 Ok(()) => (format!("✓ {} launched · {}", agent.display, model), 1),
                 Err(e) => (format!("✗ {e}"), 2),
             };
@@ -157,6 +164,9 @@ impl Controller for AppController {
     fn on_ollama_host_edited(&self, url: String) {
         self.model.set_ollama_host(url);
     }
+    fn on_terminal_changed(&self, key: String) {
+        self.model.set_terminal(key);
+    }
 }
 
 
@@ -183,7 +193,7 @@ mod tests {
     struct FakeInner {
         world: Option<Result<WorldSnapshot, String>>,
         test: Option<Result<TestResult, String>>,
-        launches: Vec<(String, String, Option<String>)>,
+        launches: Vec<(String, String, Option<String>, crate::terminal::Terminal)>,
         restores: Vec<String>,
     }
     struct FakeRepository(Arc<Mutex<FakeInner>>);
@@ -235,8 +245,19 @@ mod tests {
             self.0.lock().unwrap().restores.push(token.to_string());
             Ok(())
         }
-        async fn launch_agent(&self, agent: &Agent, model: &str, host: Option<&str>) -> Result<()> {
-            self.0.lock().unwrap().launches.push((agent.name.clone(), model.to_string(), host.map(String::from)));
+        async fn launch_agent(
+            &self,
+            agent: &Agent,
+            model: &str,
+            host: Option<&str>,
+            terminal: &crate::terminal::Terminal,
+        ) -> Result<()> {
+            self.0.lock().unwrap().launches.push((
+                agent.name.clone(),
+                model.to_string(),
+                host.map(String::from),
+                *terminal,
+            ));
             Ok(())
         }
     }
@@ -305,6 +326,7 @@ mod tests {
         fn ollama_host(&self) -> String { self.host.lock().unwrap().clone() }
         fn selected_agent_token(&self) -> Option<String> { None }
         fn selected_model_name(&self) -> Option<String> { None }
+        fn selected_terminal_key(&self) -> String { String::new() }
     }
 
     fn rt() -> tokio::runtime::Runtime {

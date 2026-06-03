@@ -9,6 +9,7 @@ mod controller;
 mod model;
 mod ollama;
 mod repository;
+mod terminal;
 mod slint_generated;
 mod test_util;
 mod view;
@@ -16,11 +17,12 @@ mod view;
 use controller::AppController;
 use model::AppModel;
 use repository::OllamaRepository;
-use slint::{Timer, TimerMode};
+use slint::{Model, ModelRc, SharedString, Timer, TimerMode, VecModel};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
+use terminal::Terminal;
 use view::SlintAppView;
 
 thread_local! {
@@ -55,6 +57,29 @@ fn main() -> anyhow::Result<()> {
 
     // 6. Wire the Slint callbacks.
     view.attach_controller(Arc::downgrade(&controller_dyn));
+
+    // 6b. Populate the terminal dropdown with the platform-specific
+    //     terminals that are actually installed on this machine.
+    {
+        let items: Vec<slint_generated::TerminalItem> = terminal::available()
+            .into_iter()
+            .map(|t| slint_generated::TerminalItem {
+                key: SharedString::from(t.key()),
+                label: SharedString::from(t.label()),
+            })
+            .collect();
+        let key = config::load().terminal;
+        let idx = terminal::index_of(&key) as i32;
+        if let Some(ui) = view.ui_weak().upgrade() {
+            ui.set_terminals(ModelRc::new(VecModel::from(items)));
+            ui.set_sel_terminal_index(idx);
+        }
+        // The persisted key may not match the default "" that the
+        // Controller has never seen — coerce it through Terminal::from_key
+        // so a saved "iterm2" is recognised even if the user's iTerm.app
+        // is currently missing (we still record the choice for next run).
+        let _ = Terminal::from_key(&key);
+    }
 
     // 7. Poller + mirror loop.
     controller.start(&handle);

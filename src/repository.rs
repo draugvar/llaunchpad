@@ -11,6 +11,7 @@ use crate::ollama::{
     installed_states, launch_agent, list_agents, list_cloud_models, list_local_models,
     restore_agent, restore_available, running_states, test_connection, Agent, Model,
 };
+use crate::terminal::Terminal;
 use anyhow::Result;
 
 /// Snapshot of "what does the world look like right now?" — the canonical
@@ -49,6 +50,7 @@ pub trait Repository: Send + Sync {
         agent: &Agent,
         model: &str,
         ollama_host: Option<&str>,
+        terminal: &Terminal,
     ) -> Result<()>;
 
     /// Convenience: full refresh. Heavy work is parallelised where safe
@@ -119,12 +121,14 @@ impl Repository for OllamaRepository {
         agent: &Agent,
         model: &str,
         ollama_host: Option<&str>,
+        terminal: &Terminal,
     ) -> Result<()> {
         let agent = agent.clone();
         let model = model.to_string();
         let host = ollama_host.map(|s| s.to_string());
+        let terminal = *terminal;
         tokio::task::spawn_blocking(move || {
-            launch_agent(&agent, &model, host.as_deref())
+            launch_agent(&agent, &model, host.as_deref(), &terminal)
         })
         .await?
     }
