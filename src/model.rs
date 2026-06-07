@@ -356,7 +356,6 @@ mod tests {
     use crate::ollama::Agent;
     use crate::repository::{Repository, TestResult, WorldSnapshot};
     use crate::test_util::HomeGuard;
-    use std::path::PathBuf;
     use std::sync::{Arc, Mutex};
     // Duration used in tokio::time::sleep below.
 

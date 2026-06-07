@@ -210,13 +210,11 @@ mod tests {
     use super::*;
     use anyhow::Result;
     use crate::config::Prefs;
-    use crate::model::{AppModel, Status};
+    use crate::model::AppModel;
     use crate::ollama::Agent;
     use crate::repository::{Repository, TestResult, WorldSnapshot};
     use crate::view::{ViewCommand, ViewState};
     use crate::test_util::HomeGuard;
-    use std::collections::HashMap;
-    use std::path::PathBuf;
     use std::sync::Arc;
 
     struct FakeInner {

@@ -211,8 +211,11 @@ fn shell_safe_dir(dir: &str) -> String {
 /// Open a native folder picker. The dialog is modal and blocks; callers
 /// should run this off the UI thread.
 pub fn pick_directory(start_dir: Option<&str>) -> Option<String> {
-    let _start = start_dir.filter(|d| !d.is_empty());
-
+    // `start` is only consumed by the Linux/Windows branches (as the
+    // seed path). On macOS we don\'t seed the dialog because a bad
+    // `default location` makes osascript error.
+    #[cfg(not(target_os = "macos"))]
+    let start = start_dir.filter(|d| !d.is_empty());
     #[cfg(target_os = "macos")]
     {
         // `choose folder` returns an alias; convert to POSIX. We deliberately
@@ -302,6 +305,12 @@ fn spawn_in_terminal(
     working_dir: Option<&str>,
     terminal: &Terminal,
 ) -> Result<()> {
+    // `terminal` is consumed by the macOS dispatch (which delegates to
+    // `Terminal::spawn`); on Linux/Windows we re-implement the spawn
+    // locally to set `current_dir`, so the parameter is unused on
+    // those platforms. The let keeps rustc happy without forcing
+    // cfg-gating the signature.
+    let _ = terminal;
     // Prepend OLLAMA_HOST=<url> to the command string for each platform.
     // The host is sanitized before interpolation to guard against shell injection.
     let full_cmd: String;
@@ -722,6 +731,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     fn empty_spec_is_never_satisfied() {
         let spec = InstallSpec { bins: &[], bundles: &[] };
         let dir = TempDir::new("empty");

@@ -23,15 +23,12 @@ mod terminal;
 mod test_util;
 mod view;
 
-use crate::ollama::logos::provider_for_model;
-use crate::ollama::Agent;
-use crate::slint_generated::{AgentItem, ModelItem, TerminalItem};
-use crate::terminal::Terminal;
+use crate::slint_generated::TerminalItem;
 use crate::view::SlintAppView;
 use controller::AppController;
 use model::AppModel;
 use repository::OllamaRepository;
-use slint::{Model, ModelRc, SharedString, Timer, TimerMode, VecModel};
+use slint::{ModelRc, SharedString, Timer, TimerMode, VecModel};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
