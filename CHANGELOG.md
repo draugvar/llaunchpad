@@ -6,8 +6,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- **Terminal selector in Settings** — choose which terminal emulator hosts CLI agents. The dropdown lists only the emulators installed on the current machine (Terminal.app, iTerm2, Alacritty, WezTerm, kitty on macOS; GNOME Terminal, Konsole, XFCE Terminal, xterm, Alacritty, WezTerm, kitty on Linux; Windows Terminal, Command Prompt, PowerShell on Windows). The "System default" entry is always available and falls back to the historical per-OS behavior. The choice is persisted in `prefs.json` and applied on every subsequent launch. A new `crate::terminal` module owns the enum, install detection (PATH lookup, `.app` bundles, login-shell PATH for GUI processes), and per-platform spawn implementation.
+## [0.6.1] - 2026-06-08
+
+### Changed
+- **Settings gear temporarily hidden** — the redesigned settings UI
+  (terminal selector, working-directory picker) is still being
+  polished, so the gear icon is commented out in the header. The
+  settings panel and the per-feature knobs it contains remain fully
+  functional via the keyboard / programmatic API; only the visual
+  entry point is removed. Re-enable by uncommenting the `IconBtn`
+  block in `ui/app.slint` near line 883.
+- **Window height bumped 440 → 500** to fit the working-directory
+  row in the main body and the cwd+version footer.
+- **Footer now shows the working directory** in monospace between
+  the status banner and the version, elide-truncated for long paths.
+
+### Internal
+- Merge from `main` reconciled cleanly into the MVC layout (see
+  `controller`, `model`, `view`, `repository`, `terminal` modules).
+  Provider / agent logo assets are wired through the Slint badges
+  and the `crate::ollama::logos::provider_for_model` mapping.
 
 ## [0.6.0] - 2026-06-07
 
