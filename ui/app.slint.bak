@@ -7,20 +7,13 @@ export struct AgentItem {
     running: bool,
     installed: bool,       // app/CLI detected on this machine
     restorable: bool,      // has an ollama restore backup
-    initials: string,      // badge text (e.g. "CA") — shown when no logo
+    initials: string,      // badge text (e.g. "CA")
     color-index: int,      // slot into Theme.palette
-    logo: string,          // logo key e.g. "claude-code", "" = fall back to initials
 }
 
 export struct ModelItem {
     name: string,          // model name passed to ollama launch
     is-local: bool,        // true = pulled from local/remote Ollama server
-    provider: string,      // provider slug e.g. "openai", "gemini", "ollama"
-}
-
-export struct TerminalItem {
-    key: string,           // persisted key (e.g. "iterm2", "gnome-terminal")
-    label: string,         // human-readable label for the dropdown
 }
 
 // ---- theme ----
@@ -44,53 +37,15 @@ global Theme {
     }
 }
 
-// ---- vector icon (24x24 viewBox, stroke-based, minimal). Pass `name` to pick one. ----
-component Icon {
-    in property <string> name;          // "chevron-down" | "refresh" | "close" | "gear" | "dot" | "check"
-    in property <color> color: Theme.text;
-    in property <length> size: 16px;
-    in property <length> stroke: 1.75px;
-
-    out property <string> commands:
-        name == "chevron-down" ? "M 6 9 L 12 15 L 18 9" :
-        name == "refresh" ? "M 20 12 A 8 8 0 1 1 12 4 L 12 4 M 12 4 L 8 4 M 12 4 L 12 8" :
-        name == "close" ? "M 6 6 L 18 18 M 18 6 L 6 18" :
-        name == "gear" ? "M 13 2 L 11 2 L 10.6 4.2 L 8.8 5.1 L 6.9 4 L 5.5 5.5 L 6.6 7.4 L 5.7 9.2 L 3.5 9.6 L 3.5 11.6 L 5.7 12 L 6.6 13.8 L 5.5 15.7 L 6.9 17.1 L 8.8 16 L 10.6 16.9 L 11 19.2 L 13 19.2 L 13.4 16.9 L 15.2 16 L 17.1 17.1 L 18.5 15.7 L 17.4 13.8 L 18.3 12 L 20.5 11.6 L 20.5 9.6 L 18.3 9.2 L 17.4 7.4 L 18.5 5.5 L 17.1 4 L 15.2 5.1 L 13.4 4.2 L 13 2 Z M 12 9 A 3 3 0 1 1 12 15 A 3 3 0 1 1 12 9 Z" :
-        name == "check" ? "M 5 12 L 10 17 L 19 7" :
-        name == "dot" ? "M 12 12 m -4 0 a 4 4 0 1 0 8 0 a 4 4 0 1 0 -8 0 Z" :
-        "";
-    out property <bool> filled: name == "gear" || name == "dot";
-
-    width: size;
-    height: size;
-    Path {
-        width: 100%;
-        height: 100%;
-        fill: root.filled ? root.color : transparent;
-        stroke: root.filled ? transparent : root.color;
-        stroke-width: root.stroke;
-        viewbox-x: 0;
-        viewbox-y: 0;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        commands: root.commands;
-    }
-}
-
-
 // ---- colored initials badge ----
-// ---- agent badge: logo PNG if known, otherwise colored initials ----
 component AgentBadge inherits Rectangle {
     in property <string> label;
     in property <int> color-index;
-    in property <string> logo;
     width: 26px;
     height: 26px;
     border-radius: 7px;
-    clip: true;
-    background: logo != "" ? #ffffff : Theme.tint(color-index);
-
-    if logo == "" : Text {
+    background: Theme.tint(color-index);
+    Text {
         text: label;
         color: #11111b;
         font-size: 11px;
@@ -98,31 +53,18 @@ component AgentBadge inherits Rectangle {
         horizontal-alignment: center;
         vertical-alignment: center;
     }
-
-    if logo == "claude-code" : Image { width: 26px; height: 26px; source: @image-url("../assets/logos/claude-code.png"); image-fit: contain; }
-    if logo == "codex"       : Image { width: 26px; height: 26px; source: @image-url("../assets/logos/codex.png");       image-fit: contain; }
-    if logo == "opencode"    : Image { width: 26px; height: 26px; source: @image-url("../assets/logos/opencode.png");    image-fit: contain; }
-    if logo == "hermes"      : Image { width: 26px; height: 26px; source: @image-url("../assets/logos/hermes.png");      image-fit: contain; }
-    if logo == "openclaw"    : Image { width: 26px; height: 26px; source: @image-url("../assets/logos/openclaw.png");    image-fit: contain; }
-    if logo == "cursor"      : Image { width: 26px; height: 26px; source: @image-url("../assets/logos/cursor.png");      image-fit: contain; }
-    if logo == "windsurf"    : Image { width: 26px; height: 26px; source: @image-url("../assets/logos/windsurf.png");    image-fit: contain; }
-    if logo == "copilot"     : Image { width: 26px; height: 26px; source: @image-url("../assets/logos/copilot.png");     image-fit: contain; }
-    if logo == "cline"       : Image { width: 26px; height: 26px; source: @image-url("../assets/logos/cline.png");       image-fit: contain; }
-    if logo == "amp"         : Image { width: 26px; height: 26px; source: @image-url("../assets/logos/amp.png");         image-fit: contain; }
-    if logo == "goose"       : Image { width: 26px; height: 26px; source: @image-url("../assets/logos/goose.png");       image-fit: contain; }
-    if logo == "vscode"      : Image { width: 26px; height: 26px; source: @image-url("../assets/logos/vscode.png");      image-fit: contain; }
 }
 
 // ---- small pill badge shown next to local model names ----
 component LocalBadge inherits Rectangle {
-    width: 42px;
-    height: 20px;
-    border-radius: 5px;
+    width: 34px;
+    height: 16px;
+    border-radius: 4px;
     background: Theme.local.with-alpha(0.18);
     Text {
         text: "local";
         color: Theme.local;
-        font-size: 11px;
+        font-size: 9px;
         font-weight: 800;
         horizontal-alignment: center;
         vertical-alignment: center;
@@ -131,113 +73,17 @@ component LocalBadge inherits Rectangle {
 
 // ---- small pill badge shown when an agent's app/CLI is missing ----
 component NotInstalledBadge inherits Rectangle {
-    width: 98px;
-    height: 20px;
-    border-radius: 5px;
+    width: 78px;
+    height: 16px;
+    border-radius: 4px;
     background: Theme.warn.with-alpha(0.18);
     Text {
         text: "not installed";
         color: Theme.warn;
-        font-size: 11px;
+        font-size: 9px;
         font-weight: 800;
         horizontal-alignment: center;
         vertical-alignment: center;
-    }
-}
-
-// ---- plain string dropdown used for the terminal list ----
-component TerminalSelect {
-    in property <[TerminalItem]> items;
-    in-out property <int> current-index;
-    min-width: 200px;
-    height: 34px;
-    property <length> vis: min(items.length * 36px, 200px);
-    property <int> open-tick: 0;
-
-    property <TerminalItem> cur: (current-index >= 0 && current-index < items.length)
-        ? items[current-index]
-        : { key: "", label: "Select terminal" };
-
-    field := Rectangle {
-        background: Theme.card;
-        border-radius: 8px;
-        border-width: ta.has-hover ? 1px : 0px;
-        border-color: Theme.accent.with-alpha(0.5);
-        HorizontalLayout {
-            padding-left: 12px;
-            padding-right: 12px;
-            spacing: 6px;
-            Text {
-                text: cur.label;
-                color: Theme.text;
-                font-size: 14px;
-                vertical-alignment: center;
-                horizontal-stretch: 1;
-                overflow: elide;
-            }
-            Icon {
-                name: "chevron-down";
-                color: Theme.subtext;
-                size: 18px;
-                stroke: 1.75px;
-                y: (parent.height - self.height) / 2;
-            }
-        }
-        ta := TouchArea {
-            clicked => {
-                root.open-tick += 1;
-                popup.show();
-            }
-        }
-    }
-
-    popup := PopupWindow {
-        x: 0;
-        y: 0px;
-        width: max(root.width, 260px);
-        height: vis + 12px;
-        close-policy: close-on-click-outside;
-        Rectangle {
-            background: Theme.panel;
-            border-radius: 10px;
-            border-width: 1px;
-            border-color: #45475a;
-            clip: true;
-            ScrollView {
-                height: vis;
-                viewport-y: (root.open-tick * 0px) - max(0px, min(root.current-index * 36px, items.length * 36px + 12px - vis));
-                VerticalLayout {
-                    padding: 6px;
-                    for it[idx] in items: Rectangle {
-                        height: 36px;
-                        border-radius: 7px;
-                        clip: true;
-                        background: idx == root.current-index
-                            ? Theme.accent.with-alpha(0.22)
-                            : (row-ta.has-hover ? Theme.card : transparent);
-                        HorizontalLayout {
-                            padding-left: 12px;
-                            padding-right: 12px;
-                            alignment: start;
-                            Text {
-                                text: it.label;
-                                color: Theme.text;
-                                font-size: 14px;
-                                vertical-alignment: center;
-                                horizontal-stretch: 1;
-                                overflow: elide;
-                            }
-                        }
-                        row-ta := TouchArea {
-                            clicked => {
-                                root.current-index = idx;
-                                popup.close();
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -252,7 +98,7 @@ component AgentSelect {
 
     property <AgentItem> cur: (current-index >= 0 && current-index < items.length)
         ? items[current-index]
-        : { display: "Select agent", initials: "?", color-index: 0, installed: true, logo: "" };
+        : { display: "Select agent", initials: "?", color-index: 0, installed: true };
 
     field := Rectangle {
         background: Theme.card;
@@ -267,7 +113,6 @@ component AgentSelect {
                 y: (parent.height - self.height) / 2;
                 label: cur.initials;
                 color-index: cur.color-index;
-                logo: cur.logo;
                 opacity: cur.installed ? 1.0 : 0.55;
             }
             Text {
@@ -278,12 +123,12 @@ component AgentSelect {
                 opacity: cur.installed ? 1.0 : 0.55;
             }
             Rectangle { horizontal-stretch: 1; }
-            Icon {
-                name: "chevron-down";
+            Text {
+                text: "▾";
                 color: Theme.subtext;
-                size: 18px;
-                stroke: 1.75px;
-                y: (parent.height - self.height) / 2;
+                font-size: 18px;
+                font-weight: 700;
+                vertical-alignment: center;
             }
         }
         ta := TouchArea {
@@ -330,7 +175,6 @@ component AgentSelect {
                                 y: (parent.height - self.height) / 2;
                                 label: it.initials;
                                 color-index: it.color-index;
-                                logo: it.logo;
                                 opacity: it.installed ? 1.0 : 0.55;
                             }
                             Text {
@@ -364,26 +208,7 @@ component AgentSelect {
     }
 }
 
-// ---- provider logo badge ----
-component ProviderLogo inherits Rectangle {
-    in property <string> provider;
-    width: 22px;
-    height: 22px;
-
-    if provider == "openai"   : Image { width: 22px; height: 22px; source: @image-url("../assets/logos/openai.png");   image-fit: contain; }
-    if provider == "gemini"   : Image { width: 22px; height: 22px; source: @image-url("../assets/logos/gemini.png");   image-fit: contain; }
-    if provider == "gemma"    : Image { width: 22px; height: 22px; source: @image-url("../assets/logos/gemma.png");    image-fit: contain; }
-    if provider == "mistral"  : Image { width: 22px; height: 22px; source: @image-url("../assets/logos/mistral.png");  image-fit: contain; }
-    if provider == "deepseek" : Image { width: 22px; height: 22px; source: @image-url("../assets/logos/deepseek.png"); image-fit: contain; }
-    if provider == "qwen"     : Image { width: 22px; height: 22px; source: @image-url("../assets/logos/qwen.png");     image-fit: contain; }
-    if provider == "zhipu"    : Image { width: 22px; height: 22px; source: @image-url("../assets/logos/zhipu.png");    image-fit: contain; }
-    if provider == "moonshot" : Image { width: 22px; height: 22px; source: @image-url("../assets/logos/moonshot.png"); image-fit: contain; }
-    if provider == "nvidia"   : Image { width: 22px; height: 22px; source: @image-url("../assets/logos/nvidia.png");   image-fit: contain; }
-    if provider == "minimax"  : Image { width: 22px; height: 22px; source: @image-url("../assets/logos/minimax.png");  image-fit: contain; }
-    if provider == "ollama"   : Image { width: 22px; height: 22px; source: @image-url("../assets/logos/ollama.png");   image-fit: contain; }
-}
-
-// ---- model dropdown — shows provider logo + teal "local" badge for server models ----
+// ---- model dropdown — shows a teal "local" badge for server models ----
 component ModelSelect {
     in property <[ModelItem]> items;
     in-out property <int> current-index;
@@ -395,7 +220,7 @@ component ModelSelect {
 
     property <ModelItem> cur: (current-index >= 0 && current-index < items.length)
         ? items[current-index]
-        : { name: "Select model", is-local: false, provider: "ollama" };
+        : { name: "Select model", is-local: false };
 
     field := Rectangle {
         background: Theme.card;
@@ -404,26 +229,30 @@ component ModelSelect {
         border-color: Theme.accent.with-alpha(0.5);
         opacity: enabled ? 1.0 : 0.5;
         HorizontalLayout {
-            padding-left: 8px;
+            padding-left: 12px;
             padding-right: 12px;
-            spacing: 8px;
-            ProviderLogo {
+            spacing: 6px;
+            // teal dot shown for the selected item when it's local
+            Rectangle {
+                width: cur.is-local ? 7px : 0px;
+                height: 7px;
+                border-radius: 4px;
                 y: (parent.height - self.height) / 2;
-                provider: cur.provider;
+                background: cur.is-local ? Theme.local : transparent;
             }
             Text {
                 text: cur.name;
-                color: cur.is-local ? Theme.local : Theme.text;
+                color: Theme.text;
                 font-size: 14px;
                 vertical-alignment: center;
             }
             Rectangle { horizontal-stretch: 1; }
-            Icon {
-                name: "chevron-down";
+            Text {
+                text: "▾";
                 color: Theme.subtext;
-                size: 18px;
-                stroke: 1.75px;
-                y: (parent.height - self.height) / 2;
+                font-size: 18px;
+                font-weight: 700;
+                vertical-alignment: center;
             }
         }
         ta := TouchArea {
@@ -459,14 +288,10 @@ component ModelSelect {
                             ? Theme.accent.with-alpha(0.22)
                             : (row-ta.has-hover ? Theme.card : transparent);
                         HorizontalLayout {
-                            padding-left: 8px;
+                            padding-left: 12px;
                             padding-right: 8px;
                             spacing: 8px;
                             alignment: start;
-                            ProviderLogo {
-                                y: (parent.height - self.height) / 2;
-                                provider: it.provider;
-                            }
                             Text {
                                 text: it.name;
                                 color: it.is-local ? Theme.local : Theme.text;
@@ -497,7 +322,6 @@ component ThemedInput {
     in-out property <string> text;
     in property <string> placeholder-text: "";
     callback accepted(string);
-    callback edited(string);
     height: 34px;
     min-width: 200px;
 
@@ -516,7 +340,6 @@ component ThemedInput {
                 vertical-alignment: center;
                 single-line: true;
                 accepted => { root.accepted(self.text); }
-                edited => { root.edited(self.text); }
             }
         }
         // placeholder overlay — visible when the field is empty and unfocused
@@ -571,13 +394,14 @@ component Banner {
                 background: close-ta.has-hover
                     ? root.fg.with-alpha(0.18)
                     : transparent;
-                Icon {
-                    name: "close";
+                Text {
+                    text: "×";
                     color: root.fg;
-                    size: 18px;
-                    stroke: 1.75px;
-                    y: (parent.height - self.height) / 2;
-                    x: (parent.width - self.width) / 2;
+                    font-family: "Arial, Helvetica, Liberation Sans, DejaVu Sans, sans-serif";
+                    font-size: 16px;
+                    font-weight: 400;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
                 }
                 close-ta := TouchArea {
                     clicked => { root.close(); }
@@ -623,7 +447,7 @@ component Btn {
 
 // ---- small square icon button (toolbar actions: refresh, settings, ...) ----
 component IconBtn {
-    in property <string> name;          // icon name (see Icon component)
+    in property <string> text;          // single-glyph icon
     in property <bool> active: false;   // toggle-on highlight (e.g. settings open)
     in property <bool> enabled: true;
     callback clicked();
@@ -638,13 +462,13 @@ component IconBtn {
         border-width: root.active ? 1px : 0px;
         border-color: Theme.accent.with-alpha(0.5);
         opacity: root.enabled ? 1.0 : 0.45;
-        Icon {
-            name: root.name;
+        Text {
+            text: root.text;
             color: root.active ? Theme.accent : Theme.subtext;
-            size: 20px;
-            stroke: 1.85px;
-            x: (parent.width - self.width) / 2;
-            y: (parent.height - self.height) / 2;
+            font-size: 16px;
+            font-weight: 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
         }
         ta := TouchArea {
             enabled: root.enabled;
@@ -657,11 +481,7 @@ component IconBtn {
 component SettingsPanel {
     in property <bool> open;
     in property <string> version-label: "";
-    in property <[TerminalItem]> terminals;
-    in-out property <int> sel-terminal-index: 0;
-    in-out property <string> sel-terminal-key: "";
     callback close();
-    callback select-terminal(string /*terminal key*/);
     width: 360px;
     height: 100%;
 
@@ -691,13 +511,13 @@ component SettingsPanel {
                     border-radius: 6px;
                     y: (parent.height - self.height) / 2;
                     background: close-ta.has-hover ? Theme.card : transparent;
-                    Icon {
-                        name: "close";
+                    Text {
+                        text: "\u{2715}";        // ✕
                         color: Theme.subtext;
-                        size: 18px;
-                        stroke: 1.75px;
-                        x: (parent.width - self.width) / 2;
-                        y: (parent.height - self.height) / 2;
+                        font-size: 14px;
+                        font-weight: 600;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
                     }
                     close-ta := TouchArea {
                         clicked => { root.close(); }
@@ -711,36 +531,17 @@ component SettingsPanel {
                 background: #45475a;
             }
 
-            // ---- terminal selector ----
+            // body — intentionally empty for now
             Rectangle {
-                background: Theme.card.with-alpha(0.45);
-                border-radius: 10px;
-                border-width: 1px;
-                border-color: Theme.accent.with-alpha(0.25);
-                VerticalLayout {
-                    padding: 14px;
-                    spacing: 8px;
-                    Text {
-                        text: "Terminal";
-                        color: Theme.text;
-                        font-size: 14px;
-                        font-weight: 700;
-                    }
-                    Text {
-                        text: "Terminal emulator used to launch CLI agents. Only installed emulators are listed.";
-                        color: Theme.subtext;
-                        font-size: 12px;
-                        wrap: word-wrap;
-                    }
-                    terminal-select := TerminalSelect {
-                        items: root.terminals;
-                        current-index <=> root.sel-terminal-index;
-                        horizontal-stretch: 1;
-                    }
+                vertical-stretch: 1;
+                Text {
+                    text: "Nothing here yet.";
+                    color: Theme.subtext;
+                    font-size: 13px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
                 }
             }
-
-            Rectangle { vertical-stretch: 1; }
 
             // footer
             Text {
@@ -755,13 +556,11 @@ component SettingsPanel {
 
 export component AppWindow inherits Window {
     title: "Llaunchpad";
-    // window/taskbar icon (shown by the OS when the app is running)
-    icon: @image-url("../assets/icon-header.png");
     // fixed size — non resizable (min == max)
     min-width: 760px;
     max-width: 760px;
-    min-height: 500px;
-    max-height: 500px;
+    min-height: 440px;
+    max-height: 440px;
     background: Theme.bg;
     // "Segoe UI Symbol" is used as the default because it contains the Unicode
     // glyphs used as icons (▾ ↻ ✕ ● ✓ ✗) while still rendering Latin text
@@ -783,15 +582,6 @@ export component AppWindow inherits Window {
     in-out property <int> sel-model-index: -1;
     // Ollama server URL (editable, persisted)
     in-out property <string> ollama-host: "http://localhost:11434";
-    // Working directory the agent is launched in (editable, persisted; empty = inherit)
-    in-out property <string> working-dir: "";
-
-    // ---- terminal selection ----
-    in property <[TerminalItem]> terminals;
-    in-out property <int> sel-terminal-index: 0;
-    out property <string> sel-terminal-key: (sel-terminal-index >= 0 && sel-terminal-index < terminals.length)
-        ? terminals[sel-terminal-index].key
-        : "";
 
     // resolved selections
     property <int> agent-idx: sel-agent-index;
@@ -805,10 +595,7 @@ export component AppWindow inherits Window {
     callback restore(int /*agent index*/);
     callback refresh();
     callback test-connection(string /*ollama host url*/);
-    callback pick-directory();
-    callback working-dir-changed(string);
     callback dismiss();
-    callback select-terminal(string /*terminal key*/);
 
     // ---- settings side panel state ----
     in-out property <bool> settings-open: false;
@@ -851,44 +638,15 @@ export component AppWindow inherits Window {
                     font-size: 12px;
                     vertical-alignment: center;
                 }
-                refresh-btn := Rectangle {
-                    height: 34px;
-                    min-width: 100px;
-                    border-radius: 8px;
-                    background: refresh-ta.has-hover ? Theme.card.brighter(0.25) : Theme.card;
-                    HorizontalLayout {
-                        padding-left: 14px;
-                        padding-right: 16px;
-                        spacing: 8px;
-                        alignment: center;
-                        Icon {
-                            name: "refresh";
-                            color: Theme.text;
-                            size: 18px;
-                            stroke: 2.2px;
-                            y: (parent.height - self.height) / 2;
-                        }
-                        Text {
-                            text: "Refresh";
-                            color: Theme.text;
-                            font-size: 14px;
-                            font-weight: 700;
-                            vertical-alignment: center;
-                        }
-                    }
-                    refresh-ta := TouchArea {
-                        clicked => { root.refresh(); }
-                    }
+                Btn {
+                    text: "↻ Refresh";
+                    clicked => { root.refresh(); }
                 }
-                // Settings gear is hidden in this interim release while
-                // the new settings UI is still being designed. Restore
-                // by removing this comment block + uncommenting the
-                // IconBtn below.
-                // IconBtn {
-                //     name: "gear";
-                //     active: root.settings-open;
-                //     clicked => { root.toggle-settings(); }
-                // }
+                IconBtn {
+                    text: "⚙";                        // ⚙ gear
+                    active: root.settings-open;
+                    clicked => { root.toggle-settings(); }
+                }
             }
         }
 
@@ -914,31 +672,6 @@ export component AppWindow inherits Window {
                 text: "Test";
                 min-width: 70px;
                 clicked => { root.test-connection(root.ollama-host); }
-            }
-        }
-
-        // ---- working directory row ----
-        HorizontalLayout {
-            spacing: 8px;
-            alignment: start;
-            Text {
-                text: "Directory";
-                color: Theme.subtext;
-                font-size: 12px;
-                font-weight: 700;
-                vertical-alignment: center;
-                width: 82px;
-            }
-            dir-input := ThemedInput {
-                text <=> root.working-dir;
-                placeholder-text: "Working directory";
-                horizontal-stretch: 1;
-                edited(text) => { root.working-dir-changed(self.text); }
-            }
-            Btn {
-                text: "Browse…";
-                min-width: 90px;
-                clicked => { root.pick-directory(); }
             }
         }
 
@@ -1004,25 +737,13 @@ export component AppWindow inherits Window {
                 enabled: root.agent-restorable;
                 clicked => { root.restore(root.agent-idx); }
             }
-            HorizontalLayout {
-                spacing: 6px;
-                alignment: start;
-                Icon {
-                    name: "dot";
-                    color: !root.agent-installed && root.agent-token != ""
-                        ? Theme.warn
-                        : (root.agent-running ? Theme.green : transparent);
-                    size: 10px;
-                    y: (parent.height - self.height) / 2;
-                }
-                Text {
-                    text: root.agent-token != "" && !root.agent-installed
-                        ? "not installed"
-                        : (root.agent-running ? "running" : "");
-                    color: !root.agent-installed && root.agent-token != "" ? Theme.warn : Theme.green;
-                    font-size: 12px;
-                    vertical-alignment: center;
-                }
+            Text {
+                text: root.agent-token != "" && !root.agent-installed
+                    ? "● not installed"
+                    : (root.agent-running ? "● running" : "");
+                color: !root.agent-installed && root.agent-token != "" ? Theme.warn : Theme.green;
+                font-size: 12px;
+                vertical-alignment: center;
             }
         }
 
@@ -1030,7 +751,7 @@ export component AppWindow inherits Window {
         Rectangle { vertical-stretch: 1; }
 
 
-        // ---- footer: banner (left) + working dir (middle, elide) + version (right) ----
+        // ---- footer: banner (left, stretches) + version (right) ----
         HorizontalLayout {
             spacing: 12px;
             if root.status != "": Banner {
@@ -1041,26 +762,6 @@ export component AppWindow inherits Window {
             if root.status == "": Rectangle {
                 horizontal-stretch: 1;
                 height: 34px;
-            }
-            // working directory: compact, elide-truncated.
-            // Falls back to "cwd" when unset, so the footer
-            // stays balanced.
-            Text {
-                text: root.working-dir != "" ? root.working-dir : "cwd";
-                color: Theme.text;
-                font-size: 11px;
-                vertical-alignment: center;
-                horizontal-stretch: 1;
-                overflow: elide;
-                horizontal-alignment: end;
-                font-family: "Menlo, Consolas, DejaVu Sans Mono, monospace";
-            }
-            // separator between cwd and version
-            Text {
-                text: "·";
-                color: Theme.subtext;
-                font-size: 11px;
-                vertical-alignment: center;
             }
             Text {
                 text: "v" + root.version;
@@ -1090,10 +791,6 @@ export component AppWindow inherits Window {
             height: 100%;
             open: root.settings-open;
             version-label: "v" + root.version;
-            terminals: root.terminals;
-            sel-terminal-index <=> root.sel-terminal-index;
-            sel-terminal-key <=> root.sel-terminal-key;
-            select-terminal(key) => { root.select-terminal(key); }
             close => { root.close-settings(); }
             animate x { duration: 220ms; easing: ease-out; }
         }
