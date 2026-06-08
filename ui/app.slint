@@ -149,6 +149,7 @@ component NotInstalledBadge inherits Rectangle {
 component TerminalSelect {
     in property <[TerminalItem]> items;
     in-out property <int> current-index;
+    callback selected(string /*terminal key*/);
     min-width: 200px;
     height: 34px;
     property <length> vis: min(items.length * 36px, 200px);
@@ -231,6 +232,7 @@ component TerminalSelect {
                         row-ta := TouchArea {
                             clicked => {
                                 root.current-index = idx;
+                                root.selected(it.key);
                                 popup.close();
                             }
                         }
@@ -735,6 +737,7 @@ component SettingsPanel {
                     terminal-select := TerminalSelect {
                         items: root.terminals;
                         current-index <=> root.sel-terminal-index;
+                        selected(key) => { root.select-terminal(key); }
                         horizontal-stretch: 1;
                     }
                 }
@@ -880,15 +883,11 @@ export component AppWindow inherits Window {
                         clicked => { root.refresh(); }
                     }
                 }
-                // Settings gear is hidden in this interim release while
-                // the new settings UI is still being designed. Restore
-                // by removing this comment block + uncommenting the
-                // IconBtn below.
-                // IconBtn {
-                //     name: "gear";
-                //     active: root.settings-open;
-                //     clicked => { root.toggle-settings(); }
-                // }
+                IconBtn {
+                    name: "gear";
+                    active: root.settings-open;
+                    clicked => { root.toggle-settings(); }
+                }
             }
         }
 
@@ -1092,7 +1091,7 @@ export component AppWindow inherits Window {
             version-label: "v" + root.version;
             terminals: root.terminals;
             sel-terminal-index <=> root.sel-terminal-index;
-            sel-terminal-key <=> root.sel-terminal-key;
+            sel-terminal-key: root.sel-terminal-key;
             select-terminal(key) => { root.select-terminal(key); }
             close => { root.close-settings(); }
             animate x { duration: 220ms; easing: ease-out; }

@@ -454,6 +454,9 @@ impl SlintAppView {
         if prev.as_ref().map(|p| p.ollama_host.as_str()) != Some(snap.ollama_host.as_str()) {
             self.ui.set_ollama_host(snap.ollama_host.clone().into());
         }
+        if prev.as_ref().map(|p| p.working_dir.as_str()) != Some(snap.working_dir.as_str()) {
+            self.ui.set_working_dir(snap.working_dir.clone().into());
+        }
         if prev.as_ref().map(|p| p.refreshing) != Some(snap.refreshing) {
             self.ui.set_refreshing(snap.refreshing);
         }

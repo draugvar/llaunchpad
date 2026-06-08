@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-06-08
+
+### Fixed
+- Restored the **Settings** gear button so the settings panel is reachable from the UI.
+- Wired terminal selection callbacks end-to-end so changing the terminal persists to prefs.
+- Fixed a Slint binding issue by making `sel-terminal-key` a one-way binding from `AppWindow`.
+- Applied persisted `working_dir` snapshots back into the UI state.
+- Treated blank Ollama host input as unset (`None`) instead of forcing an empty `OLLAMA_HOST`.
+- Improved restore error handling to fail when `ollama launch --restore` returns a non-zero exit.
+- Preserved non-ASCII working-directory paths while escaping shell-sensitive characters safely.
+- Removed the unused `ui/app.slint.bak` backup file from shipped sources.
+
 ## [0.6.1] - 2026-06-08
 
 ### Changed

@@ -197,13 +197,22 @@ fn shell_safe_url(url: &str) -> String {
         .collect()
 }
 
-/// Strip everything that is not safe inside a double-quoted shell string. We
-/// use this for the `cd "<dir>"` prefix we hand to Terminal.app on macOS, so a
-/// directory with `\"` or `;` can't break out of the quoting.
+/// Escape characters that are special inside a double-quoted shell string.
+/// This preserves valid Unicode paths while keeping the generated
+/// `cd "<dir>" && ...` command safe.
 fn shell_safe_dir(dir: &str) -> String {
-    dir.chars()
-        .filter(|c| c.is_ascii_alphanumeric() || "/._- ".contains(*c))
-        .collect()
+    let mut out = String::with_capacity(dir.len());
+    for c in dir.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '$' => out.push_str("\\$"),
+            '`' => out.push_str("\\`"),
+            '\n' | '\r' => out.push(' '),
+            _ => out.push(c),
+        }
+    }
+    out
 }
 
 // ───────────────────────── directory picker ─────────────────────────
@@ -626,9 +635,21 @@ pub fn restore_agent(agent: &str) -> Result<()> {
     let mut cmd = Command::new(crate::ollama::ollama_bin());
     cmd.args(["launch", "--restore", agent]);
     cmd.stdin(std::process::Stdio::null());
-    cmd.stdout(std::process::Stdio::null());
-    cmd.stderr(std::process::Stdio::null());
-    cmd.status().context("failed to run `ollama launch --restore`")?;
+    let out = cmd
+        .output()
+        .context("failed to run `ollama launch --restore`")?;
+    if !out.status.success() {
+        let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+        let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        let detail = if !stderr.is_empty() {
+            stderr
+        } else if !stdout.is_empty() {
+            stdout
+        } else {
+            format!("exit status {}", out.status)
+        };
+        anyhow::bail!("`ollama launch --restore {agent}` failed: {detail}");
+    }
     Ok(())
 }
 

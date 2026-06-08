@@ -95,8 +95,15 @@ impl Controller for AppController {
         let m = self.model.clone();
         let sink = self.sink.clone();
         tokio::spawn(async move {
+            let host_opt = if host.trim().is_empty() {
+                None
+            } else {
+                Some(host.clone())
+            };
             let dir_opt = if working_dir.is_empty() { None } else { Some(working_dir.as_str()) };
-            let res = m.launch(agent.clone(), model.clone(), Some(host), dir_opt, terminal).await;
+            let res = m
+                .launch(agent.clone(), model.clone(), host_opt, dir_opt, terminal)
+                .await;
             let (msg, kind) = match res {
                 Ok(()) if terminal == crate::terminal::Terminal::Warp => (
                     "✓ Warp opened · command on clipboard — press Cmd+V in Warp".to_string(),
