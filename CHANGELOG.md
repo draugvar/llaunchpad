@@ -6,6 +6,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-06-08
+
+### Fixed
+- Restored the **Settings** gear button so the settings panel is reachable from the UI.
+- Wired terminal selection callbacks end-to-end so changing the terminal persists to prefs.
+- Fixed a Slint binding issue by making `sel-terminal-key` a one-way binding from `AppWindow`.
+- Applied persisted `working_dir` snapshots back into the UI state.
+- Treated blank Ollama host input as unset (`None`) instead of forcing an empty `OLLAMA_HOST`.
+- Improved restore error handling to fail when `ollama launch --restore` returns a non-zero exit.
+- Preserved non-ASCII working-directory paths while escaping shell-sensitive characters safely.
+- Removed the unused `ui/app.slint.bak` backup file from shipped sources.
+
+## [0.6.1] - 2026-06-08
+
+### Changed
+- **Settings gear temporarily hidden** — the redesigned settings UI
+  (terminal selector, working-directory picker) is still being
+  polished, so the gear icon is commented out in the header. The
+  settings panel and the per-feature knobs it contains remain fully
+  functional via the keyboard / programmatic API; only the visual
+  entry point is removed. Re-enable by uncommenting the `IconBtn`
+  block in `ui/app.slint` near line 883.
+- **Window height bumped 440 → 500** to fit the working-directory
+  row in the main body and the cwd+version footer.
+- **Footer now shows the working directory** in monospace between
+  the status banner and the version, elide-truncated for long paths.
+
+### Internal
+- Merge from `main` reconciled cleanly into the MVC layout (see
+  `controller`, `model`, `view`, `repository`, `terminal` modules).
+  Provider / agent logo assets are wired through the Slint badges
+  and the `crate::ollama::logos::provider_for_model` mapping.
+
 ## [0.6.0] - 2026-06-07
 
 ### Added
