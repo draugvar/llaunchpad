@@ -220,3 +220,30 @@ pub fn dismiss_status(state: State<'_, AppState>) {
 pub fn toggle_settings(state: State<'_, AppState>) {
     state.model.toggle_settings();
 }
+
+/// Receive a frontend error report. Writes to a file under
+/// the temp dir so we can read it after the fact even if the
+/// WebView crashes. Used to diagnose "white window" issues
+/// where the JS bundle fails to render.
+#[tauri::command]
+pub fn log_frontend_error(message: String, stack: Option<String>) {
+    let mut path = std::env::temp_dir();
+    path.push("llaunchpad-frontend-errors.log");
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let line = format!(
+        "[{timestamp}] {message}\n  stack: {}\n",
+        stack.unwrap_or_else(|| "<no stack>".into()),
+    );
+    use std::io::Write;
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
+        let _ = f.write_all(line.as_bytes());
+    }
+    eprintln!("[llaunchpad] frontend error: {line}");
+}

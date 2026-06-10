@@ -153,6 +153,7 @@ pub fn run() {
             commands::dismiss_status,
             commands::toggle_settings,
             commands::record_selection,
+            commands::log_frontend_error,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
