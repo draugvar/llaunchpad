@@ -75,10 +75,20 @@ fn install_panic_hook() {
 /// Spawn the model's background poller + mirror task. Called once on
 /// `setup` so the snapshot is fresh by the time the first command
 /// fires.
+///
+/// **Important**: we use `tauri::async_runtime::spawn` rather than
+/// `tokio::spawn` here. Tauri's main loop runs on the tao event
+/// thread, which is *not* a tokio runtime — calling
+/// `tokio::runtime::Handle::current()` from the `setup` hook panics
+/// with "no reactor running" / "there is no reactor running, must
+/// be called from the context of a Tokio 1.x runtime". That panic
+/// happens inside an `extern "C"` callback (`applicationDidFinish
+/// Launching`) which Rust marks as `nounwind`, so it immediately
+/// `abort()`s the process. `tauri::async_runtime` is a thin shim
+/// over tokio that the Tauri builder has already configured.
 fn spawn_background_tasks(app: AppHandle, model: AppModel) {
-    let handle = tokio::runtime::Handle::current();
     let me = model.clone();
-    handle.spawn(async move {
+    tauri::async_runtime::spawn(async move {
         me.refresh().await;
     });
 
@@ -86,7 +96,7 @@ fn spawn_background_tasks(app: AppHandle, model: AppModel) {
     // the frontend over the `state-updated` Tauri event.
     let mut rx = model.subscribe();
     let app_for_mirror = app.clone();
-    handle.spawn(async move {
+    tauri::async_runtime::spawn(async move {
         // Drop the first value: it's the initial state, the frontend
         // will request it on mount.
         let _ = rx.borrow().clone();
@@ -100,7 +110,7 @@ fn spawn_background_tasks(app: AppHandle, model: AppModel) {
 
     // 5s poller
     let me = model.clone();
-    handle.spawn(async move {
+    tauri::async_runtime::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
         interval.tick().await; // skip the immediate first tick
         loop {
