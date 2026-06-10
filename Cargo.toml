@@ -35,8 +35,9 @@ async-trait = "0.1"
 thiserror = "1"
 
 [profile.release]
-panic = "abort"
+panic = "unwind"
 codegen-units = 1
 lto = true
-opt-level = "s"
-strip = true
+opt-level = 3
+debug = 1
+# strip = true

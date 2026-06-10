@@ -38,6 +38,40 @@ impl AppState {
     }
 }
 
+/// Path to the panic log. Tauri release builds set `panic = "abort"`,
+/// which means a panic prints a useless backtrace and aborts. We
+/// install a custom hook that writes the panic message (and the
+/// backtrace if `RUST_BACKTRACE=1`) here so the user can see what
+/// actually went wrong.
+fn panic_log_path() -> std::path::PathBuf {
+    let mut p = std::env::temp_dir();
+    p.push("llaunchpad-panic.log");
+    p
+}
+
+fn install_panic_hook() {
+    let path = panic_log_path();
+    std::panic::set_hook(Box::new(move |info| {
+        let bt = std::backtrace::Backtrace::force_capture();
+        let msg = match info.payload().downcast_ref::<&str>() {
+            Some(s) => (*s).to_string(),
+            None => match info.payload().downcast_ref::<String>() {
+                Some(s) => s.clone(),
+                None => "<non-string panic payload>".to_string(),
+            },
+        };
+        let location = info
+            .location()
+            .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+            .unwrap_or_else(|| "<unknown>".to_string());
+        let body = format!(
+            "[llaunchpad] PANIC at {location}\n  message: {msg}\n  backtrace:\n{bt}\n",
+        );
+        let _ = std::fs::write(&path, &body);
+        eprintln!("{body}");
+    }));
+}
+
 /// Spawn the model's background poller + mirror task. Called once on
 /// `setup` so the snapshot is fresh by the time the first command
 /// fires.
@@ -49,9 +83,7 @@ fn spawn_background_tasks(app: AppHandle, model: AppModel) {
     });
 
     // Mirror task: subscribe to model state changes and emit them to
-    // the frontend over the `state-updated` Tauri event. The frontend
-    // treats this as a push notification; it then calls `get_snapshot`
-    // to fetch the latest full snapshot.
+    // the frontend over the `state-updated` Tauri event.
     let mut rx = model.subscribe();
     let app_for_mirror = app.clone();
     handle.spawn(async move {
@@ -80,6 +112,8 @@ fn spawn_background_tasks(app: AppHandle, model: AppModel) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    install_panic_hook();
+
     let state = AppState::new();
     let model_for_setup = state.model.clone();
 
