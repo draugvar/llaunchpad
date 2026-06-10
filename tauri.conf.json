@@ -21,7 +21,9 @@
         "fullscreen": false,
         "center": true,
         "titleBarStyle": "Transparent",
-        "hiddenTitle": true
+        "hiddenTitle": true,
+        "url": "tauri://localhost",
+        "devtools": true
       }
     ],
     "security": {
@@ -40,7 +42,7 @@
     ],
     "category": "DeveloperTool",
     "shortDescription": "Launch any Ollama coding agent against any cloud model",
-    "longDescription": "Llaunchpad is a tiny, good-looking GUI that picks the agent (Codex, Claude Code, Cursor, …) and the cloud model, then runs `ollama launch <agent> --model <model>` for you in one click.",
+    "longDescription": "Llaunchpad is a tiny, good-looking GUI that picks the agent (Codex, Claude Code, Cursor, \u2026) and the cloud model, then runs `ollama launch <agent> --model <model>` for you in one click.",
     "macOS": {
       "minimumSystemVersion": "11.0"
     }
