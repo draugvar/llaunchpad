@@ -7,6 +7,7 @@
 //! concrete `OllamaRepository` delegates to the `crate::ollama` module.
 //! Tests can substitute an in-memory fake to drive the Model deterministically.
 
+use serde::Serialize;
 use crate::ollama::{
     installed_states, launch_agent, list_agents, list_cloud_models, list_local_models,
     restore_agent, restore_available, running_states, test_connection, Agent, Model,
@@ -16,7 +17,8 @@ use anyhow::Result;
 
 /// Snapshot of "what does the world look like right now?" — the canonical
 /// input the Model turns into a `StateSnapshot` for the View.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WorldSnapshot {
     pub agents: Vec<Agent>,
     pub running: Vec<bool>,
@@ -26,7 +28,8 @@ pub struct WorldSnapshot {
 
 /// What the test-connection flow returns. Kept separate from `WorldSnapshot`
 /// because the result of a Test is what updates local models, not the agents.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TestResult {
     pub info: String,
     pub local_models: Vec<String>,

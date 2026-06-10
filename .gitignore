@@ -1,11 +1,23 @@
+# Build
 /target
+/src-tauri/target
+/dist
+/gen
 
-# build artifacts
-/Llaunchpad.app
-/assets/AppIcon.iconset
+# Deps
+/node_modules
+
+# Bundle
+/src-tauri/target/release/bundle
 
 # macOS
 .DS_Store
+/Llaunchpad.app
+/assets/AppIcon.iconset
 
 # IDE
 /.idea
+
+# logs
+*.log
+.pnpm-store

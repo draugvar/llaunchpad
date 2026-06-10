@@ -1,8 +1,10 @@
 use anyhow::{Context, Result};
+use serde::Serialize;
 use serde::Deserialize;
 use std::time::Duration;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Model {
     pub name: String,
 }

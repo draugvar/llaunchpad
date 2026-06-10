@@ -16,10 +16,12 @@
 use anyhow::{Context, Result};
 use std::process::Command;
 use std::sync::OnceLock;
+use serde::Serialize;
 
 /// One of the terminals Llaunchpad knows how to spawn a CLI agent into.
 #[allow(clippy::enum_variant_names)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum Terminal {
     /// Use the OS-builtin default (Terminal.app on macOS, the first
     /// emulator found on Linux, cmd on Windows). Always available.

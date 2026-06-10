@@ -11,6 +11,7 @@
 //! and arranges the background poller. The View applies snapshots.
 
 use crate::config::{self, Prefs};
+use serde::Serialize;
 use crate::ollama::Agent;
 use crate::repository::Repository;
 use anyhow::Result;
@@ -19,7 +20,8 @@ use std::sync::{Arc, RwLock};
 use tokio::sync::watch;
 
 /// A status message shown in the bottom banner. `kind == 0` means no banner.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Status {
     pub message: String,
     pub kind: i32, // 0 none, 1 ok, 2 error
@@ -27,7 +29,8 @@ pub struct Status {
 
 /// View-friendly shape of the current state. The View receives a clone on
 /// every change. The model keeps the canonical state in an `RwLock`.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StateSnapshot {
     /// Ollama server URL the user is currently targeting.
     pub ollama_host: String,
@@ -509,7 +512,7 @@ mod tests {
 
     #[test]
     fn first_load_flips_after_first_successful_refresh() {
-        let _home = HomeGuard::new("llaunchpad-model-test");
+        let _home = HomeGuard::new();
         let (inner, repo) = FakeRepository::new();
         inner.lock().unwrap().world = Some(Ok(sample_world()));
         let prefs = Prefs { agent: "claude".into(), model: "glm-4.6:cloud".into(), ollama_host: "http://x".into(), terminal: String::new(), working_dir: String::new() };
@@ -522,7 +525,7 @@ mod tests {
 
     #[test]
     fn first_load_stays_false_when_refresh_fails() {
-        let _home = HomeGuard::new("llaunchpad-model-test");
+        let _home = HomeGuard::new();
         let (inner, repo) = FakeRepository::new();
         inner.lock().unwrap().world = Some(Err("ollama missing".into()));
         let model = AppModel::new(repo as Arc<dyn Repository>, Prefs::default());
@@ -533,7 +536,7 @@ mod tests {
 
     #[test]
     fn first_load_latches_after_success() {
-        let _home = HomeGuard::new("llaunchpad-model-test");
+        let _home = HomeGuard::new();
         let (inner, repo) = FakeRepository::new();
         inner.lock().unwrap().world = Some(Ok(sample_world()));
         let model = AppModel::new(repo as Arc<dyn Repository>, Prefs::default());
@@ -549,7 +552,7 @@ mod tests {
 
     #[test]
     fn prefs_populate_last_agent_and_last_model() {
-        let _home = HomeGuard::new("llaunchpad-model-test");
+        let _home = HomeGuard::new();
         let (_inner, repo) = FakeRepository::new();
         let prefs = Prefs {
             agent: "codex-app".into(),
@@ -566,7 +569,7 @@ mod tests {
 
     #[test]
     fn empty_prefs_yield_no_last_agent_or_model() {
-        let _home = HomeGuard::new("llaunchpad-model-test");
+        let _home = HomeGuard::new();
         let (_inner, repo) = FakeRepository::new();
         let model = AppModel::new(repo as Arc<dyn Repository>, Prefs::default());
         let s = model.snapshot();
@@ -578,7 +581,7 @@ mod tests {
 
     #[test]
     fn set_status_then_dismiss_clears_the_banner() {
-        let _home = HomeGuard::new("llaunchpad-model-test");
+        let _home = HomeGuard::new();
         let (_inner, repo) = FakeRepository::new();
         let model = AppModel::new(repo as Arc<dyn Repository>, Prefs::default());
         model.set_status(Status { message: "ok".into(), kind: 1 });
@@ -590,7 +593,7 @@ mod tests {
 
     #[test]
     fn toggle_settings_flips_and_clamps() {
-        let _home = HomeGuard::new("llaunchpad-model-test");
+        let _home = HomeGuard::new();
         let (_inner, repo) = FakeRepository::new();
         let model = AppModel::new(repo as Arc<dyn Repository>, Prefs::default());
         assert!(!model.snapshot().settings_open);
@@ -604,7 +607,7 @@ mod tests {
 
     #[test]
     fn test_connection_bumps_test_gen_and_publishes_status() {
-        let _home = HomeGuard::new("llaunchpad-model-test");
+        let _home = HomeGuard::new();
         let (inner, repo) = FakeRepository::new();
         inner.lock().unwrap().test = Some(Ok(TestResult {
             info: "ok".into(),
@@ -625,7 +628,7 @@ mod tests {
         // second. The model guards against this with `test_gen` and
         // discards stale responses. We test the bookkeeping, not the
         // timing.
-        let _home = HomeGuard::new("llaunchpad-model-test");
+        let _home = HomeGuard::new();
         let (inner, repo) = FakeRepository::new();
         inner.lock().unwrap().test = Some(Ok(TestResult {
             info: "ok".into(),
@@ -642,7 +645,7 @@ mod tests {
 
     #[test]
     fn test_connection_publishes_status_with_kind_1_on_success() {
-        let _home = HomeGuard::new("llaunchpad-model-test");
+        let _home = HomeGuard::new();
         let (inner, repo) = FakeRepository::new();
         inner.lock().unwrap().test = Some(Ok(TestResult {
             info: "ollama v0.5".into(),
@@ -660,7 +663,7 @@ mod tests {
 
     #[test]
     fn test_connection_publishes_status_with_kind_2_on_error() {
-        let _home = HomeGuard::new("llaunchpad-model-test");
+        let _home = HomeGuard::new();
         let (inner, repo) = FakeRepository::new();
         inner.lock().unwrap().test = Some(Err("connection refused".into()));
         let model = AppModel::new(repo as Arc<dyn Repository>, Prefs::default());
@@ -676,7 +679,7 @@ mod tests {
     fn successful_test_connection_clears_local_models() {
         // If a previous test populated local_models and the new test
         // returns no local models, the snapshot must clear the list.
-        let _home = HomeGuard::new("llaunchpad-model-test");
+        let _home = HomeGuard::new();
         let (inner, repo) = FakeRepository::new();
         inner.lock().unwrap().test = Some(Ok(TestResult {
             info: "ok".into(),
@@ -696,7 +699,7 @@ mod tests {
 
     #[test]
     fn record_launch_persists_agent_and_model() {
-        let _home = HomeGuard::new("llaunchpad-model-test");
+        let _home = HomeGuard::new();
         let (_inner, repo) = FakeRepository::new();
         let model = AppModel::new(repo as Arc<dyn Repository>, Prefs::default());
         model.record_launch("claude".into(), "qwen3-coder:cloud".into());
@@ -707,7 +710,7 @@ mod tests {
 
     #[test]
     fn record_selection_merges_into_existing_prefs() {
-        let _home = HomeGuard::new("llaunchpad-model-test");
+        let _home = HomeGuard::new();
         let (_inner, repo) = FakeRepository::new();
         // Seed prefs with one field already set.
         crate::config::save(&Prefs {
@@ -728,7 +731,7 @@ mod tests {
 
     #[test]
     fn launch_calls_repository_with_agent_model_and_host() {
-        let _home = HomeGuard::new("llaunchpad-model-test");
+        let _home = HomeGuard::new();
         let (inner, repo) = FakeRepository::new();
         let model = AppModel::new(repo as Arc<dyn Repository>, Prefs::default());
         let a = agent("claude", "Claude", false);
@@ -751,7 +754,7 @@ mod tests {
 
     #[test]
     fn restore_calls_repository_with_token() {
-        let _home = HomeGuard::new("llaunchpad-model-test");
+        let _home = HomeGuard::new();
         let (inner, repo) = FakeRepository::new();
         let model = AppModel::new(repo as Arc<dyn Repository>, Prefs::default());
         let r = rt();
@@ -761,7 +764,7 @@ mod tests {
 
     #[test]
     fn is_agent_restorable_reflects_repository() {
-        let _home = HomeGuard::new("llaunchpad-model-test");
+        let _home = HomeGuard::new();
         let (inner, repo) = FakeRepository::new();
         inner.lock().unwrap().restore_available.insert("claude".into(), true);
         let model = AppModel::new(repo as Arc<dyn Repository>, Prefs::default());
@@ -773,7 +776,7 @@ mod tests {
 
     #[test]
     fn agent_by_index_returns_none_for_out_of_range() {
-        let _home = HomeGuard::new("llaunchpad-model-test");
+        let _home = HomeGuard::new();
         let (inner, repo) = FakeRepository::new();
         inner.lock().unwrap().world = Some(Ok(sample_world()));
         let model = AppModel::new(repo as Arc<dyn Repository>, Prefs::default());

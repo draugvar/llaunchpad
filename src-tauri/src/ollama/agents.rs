@@ -1,7 +1,9 @@
 use anyhow::{Context, Result};
+use serde::Serialize;
 use tokio::process::Command;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Agent {
     /// token passed to `ollama launch <name>`
     pub name: String,
