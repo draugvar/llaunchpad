@@ -1,6 +1,6 @@
 # Build
 /target
-/src-tauri/target
+
 /dist
 /gen
 
@@ -8,7 +8,7 @@
 /node_modules
 
 # Bundle
-/src-tauri/target/release/bundle
+target/release/bundle
 
 # macOS
 .DS_Store
