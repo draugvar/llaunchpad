@@ -59,7 +59,6 @@ pub fn running_states(agents: &[Agent]) -> Vec<bool> {
     agents.iter().map(|_| false).collect()
 }
 
-#[cfg(target_os = "macos")]
 pub fn agent_running(agent: &Agent) -> bool {
     running_states(std::slice::from_ref(agent))
         .first()
@@ -201,7 +200,6 @@ fn shell_safe_url(url: &str) -> String {
 /// Escape characters that are special inside a double-quoted shell string.
 /// This preserves valid Unicode paths while keeping the generated
 /// `cd "<dir>" && ...` command safe.
-#[cfg(target_os = "macos")]
 fn shell_safe_dir(dir: &str) -> String {
     let mut out = String::with_capacity(dir.len());
     for c in dir.chars() {
@@ -412,7 +410,6 @@ fn spawn_in_terminal(
 // ───────────────────────── GUI helpers ─────────────────────────
 
 /// Quit a running GUI app (best effort, per platform).
-#[cfg(target_os = "macos")]
 fn quit_gui(app_name: &str) {
     #[cfg(target_os = "macos")]
     {

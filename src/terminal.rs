@@ -13,9 +13,7 @@
 //! `Default` option is always present and falls back to the OS-builtin
 //! behavior described above.
 
-#[cfg(target_os = "macos")]
 use anyhow::{Context, Result};
-#[cfg(unix)]
 use std::process::Command;
 use std::sync::OnceLock;
 
@@ -150,7 +148,6 @@ impl Terminal {
     }
 
     /// Spawn `cmd` in a new window hosted by this terminal.
-    #[cfg(target_os = "macos")]
     pub fn spawn(&self, cmd: &str) -> Result<()> {
         platform::spawn(self, cmd)
     }
@@ -346,6 +343,97 @@ mod platform {
     }
 }
 
+#[cfg(target_os = "linux")]
+mod platform {
+    use super::{Command, Context, Result, Terminal};
+
+    /// Try a list of `(binary, args)` candidates in order and return
+    /// the first that spawns successfully. Used by `Default`.
+    fn try_candidates(cmd: &str) -> Result<()> {
+        let hold = format!("{cmd}; exec ${{SHELL:-/bin/bash}}");
+        let candidates: &[(&str, &[&str])] = &[
+            ("x-terminal-emulator", &["-e", "bash", "-lc"]),
+            ("gnome-terminal", &["--", "bash", "-lc"]),
+            ("konsole", &["-e", "bash", "-lc"]),
+            ("xfce4-terminal", &["-e", "bash", "-lc"]),
+            ("xterm", &["-e", "bash", "-lc"]),
+        ];
+        for (bin, args) in candidates {
+            let mut c = Command::new(bin);
+            c.args(*args).arg(&hold);
+            if c.spawn().is_ok() {
+                return Ok(());
+            }
+        }
+        anyhow::bail!("no terminal emulator found (tried gnome-terminal, konsole, xterm…)")
+    }
+
+    fn spawn_bash(bin: &str, args: &[&str], cmd: &str) -> Result<()> {
+        let hold = format!("{cmd}; exec ${{SHELL:-/bin/bash}}");
+        let mut c = Command::new(bin);
+        c.args(args).arg(&hold);
+        c.spawn().with_context(|| format!("failed to open {bin}"))?;
+        Ok(())
+    }
+
+    pub(super) fn spawn(t: &Terminal, cmd: &str) -> Result<()> {
+        match t {
+            Terminal::Default => try_candidates(cmd)?,
+            Terminal::GnomeTerminal => {
+                spawn_bash("gnome-terminal", &["--", "bash", "-lc"], cmd)?
+            }
+            Terminal::Konsole => spawn_bash("konsole", &["-e", "bash", "-lc"], cmd)?,
+            Terminal::Xfce4Terminal => {
+                spawn_bash("xfce4-terminal", &["-e", "bash", "-lc"], cmd)?
+            }
+            Terminal::Xterm => spawn_bash("xterm", &["-e", "bash", "-lc"], cmd)?,
+            Terminal::Alacritty => spawn_bash("alacritty", &["-e", "bash", "-lc"], cmd)?,
+            Terminal::Kitty => spawn_bash("kitty", &["bash", "-lc"], cmd)?,
+            // wezterm has its own spawn interface
+            Terminal::WezTerm => {
+                Command::new("wezterm")
+                    .args(["cli", "spawn", "--", cmd])
+                    .spawn()
+                    .context("failed to open wezterm")?;
+            }
+            other => anyhow::bail!("{other:?} is not available on Linux"),
+        }
+        Ok(())
+    }
+}
+
+#[cfg(target_os = "windows")]
+mod platform {
+    use super::{Command, Context, Result, Terminal};
+
+    pub(super) fn spawn(t: &Terminal, cmd: &str) -> Result<()> {
+        match t {
+            // "Default" on Windows keeps the historical
+            // `cmd /C start cmd /K` behaviour so the window stays open
+            // after the agent exits.
+            Terminal::Default | Terminal::Cmd => {
+                Command::new("cmd")
+                    .args(["/C", "start", "cmd", "/K", cmd])
+                    .spawn()
+                    .context("failed to open Command Prompt")?;
+            }
+            Terminal::WindowsTerminal => {
+                Command::new("wt.exe")
+                    .args(["new-tab", "cmd", "/K", cmd])
+                    .spawn()
+                    .context("failed to open Windows Terminal")?;
+            }
+            Terminal::PowerShell => {
+                Command::new("cmd")
+                    .args(["/C", "start", "powershell", "-NoExit", "-Command", cmd])
+                    .spawn()
+                    .context("failed to open PowerShell")?;
+            }
+            other => anyhow::bail!("{other:?} is not available on Windows"),
+        }
+        Ok(())
+    }
+}
 
 /// Filtered list of terminals available on the current platform. Used
 /// to populate the dropdown — `Default` is always first, then the
