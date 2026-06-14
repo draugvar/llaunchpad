@@ -130,6 +130,10 @@ jobs:
         run: tar czf llaunchpad-linux-x86_64.tar.gz -C target/release llaunchpad
 
       # ── Windows ───────────────────────────────────────────────────────────
+      - name: Create Windows icon
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: magick assets/AppIcon.icns -define icon:auto-resize assets/AppIcon.ico
       - name: Build Windows
         if: matrix.os == 'windows-latest'
         run: cargo build --release

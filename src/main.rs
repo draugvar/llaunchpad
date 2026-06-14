@@ -20,6 +20,7 @@ mod ollama;
 mod repository;
 mod slint_generated;
 mod terminal;
+#[cfg(test)]
 mod test_util;
 mod view;
 

@@ -8,7 +8,7 @@
 
 use crate::model::{AppModel, StateSnapshot, Status};
 use crate::view::{Controller, ViewSink, ViewState};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 
 const POLL_INTERVAL: Duration = Duration::from_secs(5);
