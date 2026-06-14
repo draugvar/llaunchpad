@@ -133,7 +133,9 @@ jobs:
       - name: Create Windows icon
         if: matrix.os == 'windows-latest'
         shell: pwsh
-        run: magick assets/AppIcon.icns -define icon:auto-resize assets/AppIcon.ico
+        run: |
+          pip install Pillow --quiet
+          python -c "from PIL import Image; img = Image.open('assets/AppIcon.icns'); img.save('assets/AppIcon.ico', format='ICO', sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)])"
       - name: Build Windows
         if: matrix.os == 'windows-latest'
         run: cargo build --release
