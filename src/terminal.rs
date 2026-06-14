@@ -14,7 +14,7 @@
 //! behavior described above.
 
 #[cfg(target_os = "macos")]
-use anyhow::Result;
+use anyhow::{Context, Result};
 #[cfg(unix)]
 use std::process::Command;
 use std::sync::OnceLock;
