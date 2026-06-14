@@ -6,6 +6,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-06-13
+
+### Fixed
+- **Windows taskbar pin icon** — the app icon now persists when pinned to the
+  Windows taskbar. Slint sets the runtime window icon, but Windows reads pinned
+  shortcut icons from the Win32 resource table embedded in the `.exe`. The build
+  now embeds `assets/AppIcon.ico` via `winresource`; CI generates the `.ico`
+  from `AppIcon.icns` using ImageMagick before the Windows build step.
+
+### Internal
+- Gated `agent_running`, `shell_safe_dir`, and `quit_gui` in `launch.rs` to
+  `#[cfg(target_os = "macos")]` — they were only called from macOS-gated sites.
+- Removed dead `platform::spawn` modules for Linux and Windows from `terminal.rs`;
+  that spawning path was superseded by the inline logic in `spawn_in_terminal`
+  (which added `working_dir` support) and was never called on those platforms.
+- Gated `Terminal::spawn` to `#[cfg(target_os = "macos")]` for the same reason.
+- Gated `mod test_util` to `#[cfg(test)]` so test infrastructure is not compiled
+  into release binaries.
+- Removed stray unused `Mutex` import from `controller.rs`.
+
 ## [0.6.2] - 2026-06-08
 
 ### Fixed
@@ -193,7 +213,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Persisted last-used agent + model across runs.
 - App icon, banner, and `bundle.sh` to assemble `Llaunchpad.app`.
 
-[Unreleased]: https://github.com/draugvar/llaunchpad/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/draugvar/llaunchpad/compare/v0.6.3...HEAD
+[0.6.3]: https://github.com/draugvar/llaunchpad/compare/v0.6.2...v0.6.3
+[0.6.2]: https://github.com/draugvar/llaunchpad/compare/v0.6.1...v0.6.2
+[0.6.1]: https://github.com/draugvar/llaunchpad/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/draugvar/llaunchpad/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/draugvar/llaunchpad/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/draugvar/llaunchpad/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/draugvar/llaunchpad/compare/v0.2.1...v0.3.0
